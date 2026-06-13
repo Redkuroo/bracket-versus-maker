@@ -31,7 +31,7 @@ export function ReassignControllerModal({
             REASSIGN CONTROLLER
           </HudText>
           <HudText variant="caption" color={Netrunner.textMuted} style={styles.subtitle}>
-            Choose who controls {participantName}. Same-name and duplicate match controllers are excluded.
+            Hold the controller label on a bracket card to change who controls {participantName}.
           </HudText>
 
           <View style={styles.playerList}>

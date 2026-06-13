@@ -1,4 +1,4 @@
-import { Pressable as RNPressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Pressable } from 'react-native-gesture-handler';
 import Animated, {
     useAnimatedStyle,
@@ -106,16 +106,17 @@ export function PlayerCard({
           )}
         </View>
         {controllerName && !isPlaceholder && (
-          <RNPressable
+          <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Controller ${controllerName}, tap to reassign`}
-            onPress={onControllerPress}
+            accessibilityLabel={`Controller ${controllerName}, hold to reassign`}
+            onLongPress={onControllerPress}
+            delayLongPress={450}
             disabled={!onControllerPress}
-            hitSlop={4}>
-            <HudText variant="caption" color={Netrunner.secondary} numberOfLines={1}>
+            hitSlop={2}>
+            <HudText variant="caption" color={Netrunner.textMuted} numberOfLines={1}>
               → {controllerName}
             </HudText>
-          </RNPressable>
+          </Pressable>
         )}
       </View>
     </View>
