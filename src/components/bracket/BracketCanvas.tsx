@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanima
 
 import { BracketRoundColumn } from '@/components/bracket/BracketRoundColumn';
 import { BracketLayout } from '@/constants/netrunner-theme';
-import { getCanvasHeight } from '@/lib/bracket-engine';
+import { getBracketVerticalOffset, getCanvasHeight } from '@/lib/bracket-engine';
 import type { TournamentState } from '@/types/bracket';
 
 const MIN_SCALE = 0.5;
@@ -22,10 +22,18 @@ type BracketCanvasProps = {
 
 export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps) {
   const unitHeight = BracketLayout.unitHeight;
+  const matchNodeHeight = BracketLayout.matchNodeHeight;
   const canvasHeight = getCanvasHeight(tournament.rounds, unitHeight);
+  const verticalOffset = getBracketVerticalOffset(
+    tournament.rounds.length,
+    tournament.rounds[0]?.matches.length ?? 1,
+    unitHeight,
+    matchNodeHeight,
+  );
+  const treeHeight = canvasHeight + BracketLayout.roundLabelHeight;
   const canvasWidth =
-    tournament.rounds.length * (BracketLayout.matchWidth + BracketLayout.roundGap) +
-    BracketLayout.canvasPadding * 2;
+    tournament.rounds.length * (BracketLayout.matchWidth + BracketLayout.roundGap) -
+    BracketLayout.roundGap;
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -71,13 +79,15 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
       <GestureDetector gesture={gesture}>
         <View style={styles.viewport}>
           <Animated.View style={[styles.content, animatedStyle]}>
-            <View style={[styles.bracketTree, { height: canvasHeight, width: canvasWidth }]}>
+            <View style={[styles.bracketTree, { height: treeHeight, width: canvasWidth }]}>
               {tournament.rounds.map((round, index) => (
                 <BracketRoundColumn
                   key={round.index}
                   round={round}
                   canvasHeight={canvasHeight}
                   unitHeight={unitHeight}
+                  matchNodeHeight={matchNodeHeight}
+                  verticalOffset={verticalOffset}
                   activeMatchId={tournament.activeMatchId}
                   isFinal={index === tournament.rounds.length - 1}
                   onSelectWinner={onSelectWinner}

@@ -267,8 +267,35 @@ export function selectMatchWinner(
 }
 
 export function getMatchTop(roundIndex: number, matchIndex: number, unitHeight: number): number {
-  const spacing = unitHeight * 2 ** roundIndex;
-  return matchIndex * spacing * 2;
+  if (roundIndex === 0) {
+    return matchIndex * unitHeight * 2;
+  }
+
+  return matchIndex * unitHeight * 2 ** (roundIndex + 1) + unitHeight * (2 ** roundIndex - 1);
+}
+
+export function getMatchCenterY(
+  roundIndex: number,
+  matchIndex: number,
+  unitHeight: number,
+  matchNodeHeight: number,
+): number {
+  return getMatchTop(roundIndex, matchIndex, unitHeight) + matchNodeHeight / 2;
+}
+
+export function getBracketVerticalOffset(
+  roundCount: number,
+  firstRoundMatchCount: number,
+  unitHeight: number,
+  matchNodeHeight: number,
+): number {
+  if (roundCount === 0) return 0;
+
+  const canvasHeight = firstRoundMatchCount * unitHeight * 2;
+  const finalRoundIndex = roundCount - 1;
+  const finalCenter = getMatchCenterY(finalRoundIndex, 0, unitHeight, matchNodeHeight);
+
+  return canvasHeight / 2 - finalCenter;
 }
 
 export function getMatchHeight(roundIndex: number, unitHeight: number): number {

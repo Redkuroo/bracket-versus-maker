@@ -23,12 +23,14 @@ export const NetrunnerFonts = Platform.select({
 
 export const BracketLayout = {
   matchWidth: 168,
+  matchNodeHeight: 128,
   slotHeight: 42,
   slotGap: 6,
-  roundGap: 64,
+  roundGap: 56,
   unitHeight: 112,
   canvasPadding: 24,
-  connectorWidth: 32,
+  connectorArm: 22,
+  roundLabelHeight: 28,
 } as const;
 
 export function neonGlow(color: string, radius = 8) {
