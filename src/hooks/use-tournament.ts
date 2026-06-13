@@ -8,7 +8,7 @@ import {
   type TournamentPhase,
   type TournamentState,
 } from '@/types/bracket';
-import type { ParticipantInput, PresetPlayer } from '@/types/roster';
+import type { ParticipantInput } from '@/types/roster';
 
 function clampParticipantCount(count: number): number {
   return Math.min(MAX_PARTICIPANTS, Math.max(MIN_PARTICIPANTS, count));
@@ -54,9 +54,9 @@ export function useTournament() {
     );
   }, []);
 
-  const loadPresetRoster = useCallback((players: PresetPlayer[] = PRESET_ROSTER.players) => {
+  const loadPresetRoster = useCallback(() => {
     setSetupPlayers(
-      players.map((player) => ({
+      PRESET_ROSTER.players.map((player) => ({
         name: player.name,
         imageUri: player.imageUri ?? null,
       })),

@@ -55,7 +55,7 @@ export function PlayerAvatar({
   if (imageUri) {
     return (
       <View style={[styles.frame, frameSize, { borderColor: accent }]}>
-        <Image source={{ uri: imageUri }} style={styles.image} contentFit="cover" />
+        <Image source={{ uri: imageUri }} style={styles.image} contentFit="contain" contentPosition="top" />
       </View>
     );
   }
