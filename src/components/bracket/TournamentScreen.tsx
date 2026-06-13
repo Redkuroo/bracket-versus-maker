@@ -145,6 +145,14 @@ export function TournamentScreen() {
               <HudText variant="caption">Pinch to zoom · drag to pan</HudText>
             </View>
             <View style={styles.topBarActions}>
+              {tournamentPlayers.length > 0 && roundShuffleTarget ? (
+                <HudButton
+                  label={`Shuffle ${roundShuffleTarget.roundLabel}`}
+                  variant={roundShuffleTarget.hasConflicts ? 'secondary' : 'ghost'}
+                  onPress={reshuffleRoundControllers}
+                  style={styles.actionButton}
+                />
+              ) : null}
               <HudButton
                 label={tournamentPlayers.length > 0 ? 'Edit Players' : 'Add Players'}
                 variant="ghost"
@@ -175,10 +183,6 @@ export function TournamentScreen() {
               activeMatch={activeMatch}
               totalMatches={matchStats.total}
               completedMatches={matchStats.completed}
-              roundShuffleTarget={tournamentPlayers.length > 0 ? roundShuffleTarget : null}
-              onShuffleRoundControllers={
-                tournamentPlayers.length > 0 ? reshuffleRoundControllers : undefined
-              }
             />
           )}
         </View>
