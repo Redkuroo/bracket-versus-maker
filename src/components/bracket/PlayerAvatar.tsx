@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { HudText } from '@/components/bracket/HudText';
 import { Netrunner } from '@/constants/netrunner-theme';
+import { resolveRosterImageSource } from '@/data/roster-images';
 import type { BracketSlotKind } from '@/types/bracket';
 
 const ACCENTS = [Netrunner.primary, Netrunner.secondary, '#7C3AED', '#F59E0B', '#F43F5E'] as const;
@@ -51,11 +52,12 @@ export function PlayerAvatar({
   }
 
   const accent = accentForId(participantId);
+  const imageSource = resolveRosterImageSource(imageUri ?? null);
 
-  if (imageUri) {
+  if (imageSource) {
     return (
       <View style={[styles.frame, frameSize, { borderColor: accent }]}>
-        <Image source={{ uri: imageUri }} style={styles.image} contentFit="contain" contentPosition="top" />
+        <Image source={imageSource} style={styles.image} contentFit="contain" contentPosition="top" />
       </View>
     );
   }

@@ -25,6 +25,7 @@ type SetupPanelProps = {
   onChangeCount: (count: number) => void;
   onChangeName: (index: number, name: string) => void;
   onLoadPreset: () => void;
+  onShuffle: () => void;
   onStart: () => void;
 };
 
@@ -37,6 +38,7 @@ export function SetupPanel({
   onChangeCount,
   onChangeName,
   onLoadPreset,
+  onShuffle,
   onStart,
 }: SetupPanelProps) {
   const [countDraft, setCountDraft] = useState(String(participantCount));
@@ -149,10 +151,6 @@ export function SetupPanel({
             <HudText variant="label" color={Netrunner.primary}>
               Preset roster
             </HudText>
-            <HudText variant="caption" color={Netrunner.textMuted}>
-              Edit src/data/preset-roster.ts with player names and image URLs, then load here.
-              Bracket size follows the array length ({PRESET_ROSTER.players.length} in preset).
-            </HudText>
             <HudButton
               label={`Load "${PRESET_ROSTER.label}"`}
               variant="ghost"
@@ -199,7 +197,10 @@ export function SetupPanel({
             </View>
           </View>
 
-          <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
+          <View style={styles.actions}>
+            <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
+            <HudButton label="Shuffle Roster" variant="ghost" onPress={onShuffle} />
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -244,5 +245,8 @@ const styles = StyleSheet.create({
   },
   participantInput: {
     flex: 1,
+  },
+  actions: {
+    gap: 10,
   },
 });

@@ -22,6 +22,7 @@ export function TournamentScreen() {
     syncNameFields,
     updateParticipantName,
     loadPresetRoster,
+    shuffleRoster,
     startTournament,
     goHome,
     pickWinner,
@@ -58,6 +59,7 @@ export function TournamentScreen() {
             onChangeCount={syncNameFields}
             onChangeName={updateParticipantName}
             onLoadPreset={loadPresetRoster}
+            onShuffle={shuffleRoster}
             onStart={startTournament}
           />
         </View>

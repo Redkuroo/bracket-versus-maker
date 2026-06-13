@@ -31,6 +31,15 @@ function resizePlayers(players: ParticipantInput[], count: number): ParticipantI
   return players.slice(0, clamped);
 }
 
+function shufflePlayers(players: ParticipantInput[]): ParticipantInput[] {
+  const shuffled = [...players];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 export function useTournament() {
   const [phase, setPhase] = useState<TournamentPhase>('setup');
   const [setupPlayers, setSetupPlayers] = useState<ParticipantInput[]>(createEmptyPlayers(4));
@@ -61,6 +70,10 @@ export function useTournament() {
         imageUri: player.imageUri ?? null,
       })),
     );
+  }, []);
+
+  const shuffleRoster = useCallback(() => {
+    setSetupPlayers((current) => shufflePlayers(current));
   }, []);
 
   const startTournament = useCallback(() => {
@@ -125,6 +138,7 @@ export function useTournament() {
     syncNameFields,
     updateParticipantName,
     loadPresetRoster,
+    shuffleRoster,
     startTournament,
     goHome,
     resetTournament,

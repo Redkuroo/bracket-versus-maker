@@ -1,4 +1,4 @@
-/** One player entry for preset / setup rosters. Edit imageUri with a URL or null for initials. */
+/** One player entry for preset / setup rosters. imageUri is a roster key or remote URL, or null for initials. */
 export type PresetPlayer = {
   name: string;
   imageUri: string | null;
