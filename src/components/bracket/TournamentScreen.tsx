@@ -7,7 +7,6 @@ import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
-import { BottomTabInset } from '@/constants/theme';
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useTournament } from '@/hooks/use-tournament';
 
@@ -46,7 +45,7 @@ export function TournamentScreen() {
 
   if (phase === 'setup' || !tournament) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.setupShell}>
           <SetupPanel
             participantCount={participantCount}
@@ -61,7 +60,7 @@ export function TournamentScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.bracketShell}>
         <View style={styles.topBar}>
           <View style={styles.topBarCopy}>
@@ -100,7 +99,7 @@ const styles = StyleSheet.create({
   bracketShell: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingBottom: BottomTabInset + 12,
+    paddingBottom: 12,
     gap: 14,
   },
   topBar: {

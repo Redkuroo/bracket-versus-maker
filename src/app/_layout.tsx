@@ -1,7 +1,6 @@
-import { DarkTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, ThemeProvider, Stack } from 'expo-router';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 import { Netrunner } from '@/constants/netrunner-theme';
 
 const NetrunnerTheme = {
@@ -16,11 +15,16 @@ const NetrunnerTheme = {
   },
 };
 
-export default function TabLayout() {
+export default function RootLayout() {
   return (
     <ThemeProvider value={NetrunnerTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Netrunner.background },
+        }}
+      />
     </ThemeProvider>
   );
 }
