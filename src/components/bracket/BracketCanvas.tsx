@@ -45,8 +45,8 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
   const pan = Gesture.Pan()
     .minPointers(1)
     .maxPointers(1)
-    .activeOffsetX([-12, 12])
-    .activeOffsetY([-12, 12])
+    .activeOffsetX([-8, 8])
+    .activeOffsetY([-8, 8])
     .onUpdate((event) => {
       translateX.value = savedTranslateX.value + event.translationX;
       translateY.value = savedTranslateY.value + event.translationY;
@@ -69,21 +69,23 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
   return (
     <View style={styles.wrapper}>
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.canvas, animatedStyle]}>
-          <View style={[styles.bracketTree, { height: canvasHeight, width: canvasWidth }]}>
-            {tournament.rounds.map((round, index) => (
-              <BracketRoundColumn
-                key={round.index}
-                round={round}
-                canvasHeight={canvasHeight}
-                unitHeight={unitHeight}
-                activeMatchId={tournament.activeMatchId}
-                isFinal={index === tournament.rounds.length - 1}
-                onSelectWinner={onSelectWinner}
-              />
-            ))}
-          </View>
-        </Animated.View>
+        <View style={styles.viewport}>
+          <Animated.View style={[styles.content, animatedStyle]}>
+            <View style={[styles.bracketTree, { height: canvasHeight, width: canvasWidth }]}>
+              {tournament.rounds.map((round, index) => (
+                <BracketRoundColumn
+                  key={round.index}
+                  round={round}
+                  canvasHeight={canvasHeight}
+                  unitHeight={unitHeight}
+                  activeMatchId={tournament.activeMatchId}
+                  isFinal={index === tournament.rounds.length - 1}
+                  onSelectWinner={onSelectWinner}
+                />
+              ))}
+            </View>
+          </Animated.View>
+        </View>
       </GestureDetector>
     </View>
   );
@@ -94,9 +96,13 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  canvas: {
+  viewport: {
+    flex: 1,
+  },
+  content: {
     paddingHorizontal: BracketLayout.canvasPadding,
     paddingVertical: BracketLayout.canvasPadding,
+    alignSelf: 'flex-start',
   },
   bracketTree: {
     flexDirection: 'row',
