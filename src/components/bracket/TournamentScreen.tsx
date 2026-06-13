@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddPlayersModal } from '@/components/bracket/AddPlayersModal';
@@ -12,9 +12,13 @@ import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/Tourna
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useTournament } from '@/hooks/use-tournament';
 
+const MIN_BRACKET_HEIGHT = 320;
+
 export function TournamentScreen() {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [showAddPlayers, setShowAddPlayers] = useState(false);
   const [reassignTargetId, setReassignTargetId] = useState<string | null>(null);
+  const [screenHeight, setScreenHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
 
   const {
@@ -44,6 +48,18 @@ export function TournamentScreen() {
 
   const tournamentPlayers = tournament?.players ?? [];
   const controllerAssignments = tournament?.controllerAssignments ?? {};
+
+  const bracketViewport = useMemo(() => {
+    const width = windowWidth - 32;
+    const measuredHeight =
+      screenHeight > 0 && headerHeight > 0 ? screenHeight - headerHeight : 0;
+    const fallbackHeight = Math.max(windowHeight * 0.72, MIN_BRACKET_HEIGHT);
+
+    return {
+      width,
+      height: measuredHeight > 0 ? measuredHeight : fallbackHeight,
+    };
+  }, [windowWidth, windowHeight, screenHeight, headerHeight]);
 
   const reassignTarget = useMemo(() => {
     if (!tournament || !reassignTargetId) return null;
@@ -106,8 +122,10 @@ export function TournamentScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.screenRoot}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View
+        style={styles.screenRoot}
+        onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}>
         <View
           style={styles.headerSection}
           onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
@@ -116,7 +134,7 @@ export function TournamentScreen() {
               <HudText variant="label" color={Netrunner.primary} glow>
                 TOURNAMENT LIVE
               </HudText>
-              <HudText variant="caption">Scroll to explore · tap a card to advance</HudText>
+              <HudText variant="caption">Pinch to zoom · drag to pan</HudText>
             </View>
             <View style={styles.topBarActions}>
               <HudButton
@@ -153,13 +171,11 @@ export function TournamentScreen() {
           )}
         </View>
 
-        <View
-          style={[
-            styles.bracketArea,
-            headerHeight > 0 ? { top: headerHeight } : styles.bracketAreaFallback,
-          ]}>
+        <View style={[styles.bracketArea, { height: bracketViewport.height }]}>
           <BracketCanvas
             tournament={tournament}
+            viewportWidth={bracketViewport.width}
+            viewportHeight={bracketViewport.height}
             onSelectWinner={pickWinner}
             onReassignController={
               tournamentPlayers.length > 0 ? setReassignTargetId : undefined
@@ -196,9 +212,7 @@ const styles = StyleSheet.create({
   },
   screenRoot: {
     flex: 1,
-    position: 'relative',
     paddingHorizontal: 16,
-    paddingBottom: 12,
   },
   loadingShell: {
     flex: 1,
@@ -210,24 +224,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSection: {
-    gap: 14,
-    paddingBottom: 12,
+    flexShrink: 0,
+    gap: 6,
+    marginBottom: 4,
   },
   bracketArea: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 12,
-  },
-  bracketAreaFallback: {
-    top: 200,
+    width: '100%',
+    flexShrink: 0,
+    overflow: 'hidden',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
-    paddingTop: 8,
+    gap: 8,
   },
   topBarCopy: {
     flex: 1,
@@ -242,9 +252,9 @@ const styles = StyleSheet.create({
     maxWidth: '58%',
   },
   actionButton: {
-    minWidth: 72,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 42,
+    minWidth: 64,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
   },
 });

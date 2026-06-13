@@ -22,17 +22,17 @@ export const NetrunnerFonts = Platform.select({
 })!;
 
 export const BracketLayout = {
-  matchWidth: 168,
-  matchNodeHeight: 188,
-  slotHeight: 48,
-  slotGap: 6,
-  roundGap: 56,
-  unitHeight: 112,
-  canvasPadding: 24,
-  connectorArm: 22,
-  roundLabelHeight: 28,
+  matchWidth: 200,
+  matchNodeHeight: 224,
+  slotHeight: 56,
+  slotGap: 8,
+  roundGap: 48,
+  unitHeight: 132,
+  canvasPadding: 20,
+  connectorArm: 24,
+  roundLabelHeight: 32,
   /** Extra vertical room for controller labels below participant names. */
-  matchNodeOverflow: 20,
+  matchNodeOverflow: 24,
 } as const;
 
 export function neonGlow(color: string, radius = 8) {
