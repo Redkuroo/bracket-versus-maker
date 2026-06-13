@@ -176,12 +176,75 @@ function buildSlotLabel(session: PersistedTournamentSession): string {
   return `${session.setupPlayers.length} players`;
 }
 
+/** Undo history is session-only — storing it blows past AsyncStorage size limits. */
+export function trimSessionForPersistence(
+  session: Omit<PersistedTournamentSession, 'version' | 'savedAt'>,
+): Omit<PersistedTournamentSession, 'version' | 'savedAt'> {
+  return {
+    phase: session.phase,
+    setupPlayers: session.setupPlayers,
+    tournament: session.tournament,
+    history: [],
+  };
+}
+
+const MAX_SAVE_BYTES = 1_900_000;
+
 async function writeRegistry(slots: SavedTournamentSlot[]): Promise<void> {
   const payload: TournamentSaveRegistry = {
     version: REGISTRY_VERSION,
     slots: slots.sort((a, b) => b.savedAt - a.savedAt),
   };
-  await AsyncStorage.setItem(SAVES_STORAGE_KEY, JSON.stringify(payload));
+
+  let serialized = '';
+  try {
+    serialized = JSON.stringify(payload);
+  } catch {
+    throw new Error('Could not serialize tournament data.');
+  }
+
+  if (serialized.length > MAX_SAVE_BYTES) {
+    throw new Error(
+      'Save file is too large. Delete an older saved tournament or use a smaller roster.',
+    );
+  }
+
+  try {
+    await AsyncStorage.setItem(SAVES_STORAGE_KEY, serialized);
+  } catch {
+    throw new Error('Device storage could not write the save file.');
+  }
+}
+
+async function readRegistry(persistIfEmpty = false): Promise<TournamentSaveRegistry> {
+  const raw = await AsyncStorage.getItem(SAVES_STORAGE_KEY);
+  if (raw) {
+    const parsed = parseRegistry(raw);
+    if (parsed) {
+      if (parsed.slots.length > 0) return parsed;
+
+      const migrated = await migrateLegacySession();
+      if (migrated) {
+        const registry: TournamentSaveRegistry = { version: REGISTRY_VERSION, slots: [migrated] };
+        if (persistIfEmpty) await writeRegistry(registry.slots);
+        return registry;
+      }
+
+      return parsed;
+    }
+  }
+
+  const migrated = await migrateLegacySession();
+  const registry: TournamentSaveRegistry = {
+    version: REGISTRY_VERSION,
+    slots: migrated ? [migrated] : [],
+  };
+
+  if (persistIfEmpty && (migrated || !raw)) {
+    await writeRegistry(registry.slots);
+  }
+
+  return registry;
 }
 
 async function migrateLegacySession(): Promise<SavedTournamentSlot | null> {
@@ -200,30 +263,13 @@ async function migrateLegacySession(): Promise<SavedTournamentSlot | null> {
 }
 
 export async function loadAllSavedTournaments(): Promise<SavedTournamentSlot[]> {
-  const raw = await AsyncStorage.getItem(SAVES_STORAGE_KEY);
-  let registry = raw ? parseRegistry(raw) : null;
-
-  if (!registry) {
-    const migrated = await migrateLegacySession();
-    registry = { version: REGISTRY_VERSION, slots: migrated ? [migrated] : [] };
-    await writeRegistry(registry.slots);
-    return registry.slots;
-  }
-
-  if (registry.slots.length === 0) {
-    const migrated = await migrateLegacySession();
-    if (migrated) {
-      registry.slots = [migrated];
-      await writeRegistry(registry.slots);
-    }
-  }
-
+  const registry = await readRegistry(true);
   return registry.slots.sort((a, b) => b.savedAt - a.savedAt);
 }
 
 export async function loadSavedTournamentById(id: string): Promise<SavedTournamentSlot | null> {
-  const slots = await loadAllSavedTournaments();
-  return slots.find((slot) => slot.id === id) ?? null;
+  const registry = await readRegistry(false);
+  return registry.slots.find((slot) => slot.id === id) ?? null;
 }
 
 export async function upsertSavedTournament(
@@ -231,14 +277,16 @@ export async function upsertSavedTournament(
   session: Omit<PersistedTournamentSession, 'version' | 'savedAt'>,
   label?: string,
 ): Promise<{ slotId: string; savedAt: number; slot: SavedTournamentSlot }> {
+  const trimmed = trimSessionForPersistence(session);
   const savedAt = Date.now();
   const persisted: PersistedTournamentSession = {
     version: SESSION_VERSION,
     savedAt,
-    ...session,
+    ...trimmed,
   };
 
-  const slots = await loadAllSavedTournaments();
+  const registry = await readRegistry(false);
+  const slots = registry.slots;
   const existing = slotId ? slots.find((slot) => slot.id === slotId) : null;
   const nextId = existing?.id ?? createSlotId();
   const nextSlot = sessionToSlot(nextId, persisted, label ?? existing?.label);
@@ -252,8 +300,8 @@ export async function upsertSavedTournament(
 }
 
 export async function deleteSavedTournament(id: string): Promise<void> {
-  const slots = await loadAllSavedTournaments();
-  await writeRegistry(slots.filter((slot) => slot.id !== id));
+  const registry = await readRegistry(false);
+  await writeRegistry(registry.slots.filter((slot) => slot.id !== id));
 }
 
 export async function renameSavedTournament(
@@ -263,12 +311,12 @@ export async function renameSavedTournament(
   const trimmed = label.trim();
   if (!trimmed) return null;
 
-  const slots = await loadAllSavedTournaments();
-  const existing = slots.find((slot) => slot.id === id);
+  const registry = await readRegistry(false);
+  const existing = registry.slots.find((slot) => slot.id === id);
   if (!existing) return null;
 
   const nextSlot = { ...existing, label: trimmed };
-  await writeRegistry(slots.map((slot) => (slot.id === id ? nextSlot : slot)));
+  await writeRegistry(registry.slots.map((slot) => (slot.id === id ? nextSlot : slot)));
   return nextSlot;
 }
 

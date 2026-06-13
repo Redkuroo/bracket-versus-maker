@@ -113,6 +113,7 @@ export function useTournament() {
   const [activeSaveId, setActiveSaveId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const skipPersistRef = useRef(true);
+  const persistInFlightRef = useRef(false);
 
   const participantCount = setupPlayers.length;
   const participantNames = useMemo(() => setupPlayers.map((player) => player.name), [setupPlayers]);
@@ -160,16 +161,25 @@ export function useTournament() {
   }, [isHydrated, setupPlayers]);
 
   const persistCurrentSession = useCallback(async () => {
-    const result = await upsertSavedTournament(activeSaveId, {
-      phase,
-      setupPlayers,
-      tournament,
-      history,
-    });
-    setActiveSaveId(result.slotId);
-    setLastSavedAt(result.savedAt);
-    await refreshSavedTournaments();
-    return result;
+    if (persistInFlightRef.current) {
+      return null;
+    }
+
+    persistInFlightRef.current = true;
+    try {
+      const result = await upsertSavedTournament(activeSaveId, {
+        phase,
+        setupPlayers,
+        tournament,
+        history,
+      });
+      setActiveSaveId(result.slotId);
+      setLastSavedAt(result.savedAt);
+      await refreshSavedTournaments();
+      return result;
+    } finally {
+      persistInFlightRef.current = false;
+    }
   }, [activeSaveId, phase, setupPlayers, tournament, history, refreshSavedTournaments]);
 
   useEffect(() => {
@@ -184,10 +194,18 @@ export function useTournament() {
 
   const saveTournament = useCallback(async () => {
     try {
-      const { slot } = await persistCurrentSession();
-      Alert.alert('Saved', `${slot.summary}\n\nSaved to "${slot.label}".`);
-    } catch {
-      Alert.alert('Save failed', 'Could not save tournament progress. Try again.');
+      const result = await persistCurrentSession();
+      if (!result) {
+        Alert.alert('Save in progress', 'Please wait a moment and try again.');
+        return;
+      }
+      Alert.alert('Saved', `${result.slot.summary}\n\nSaved to "${result.slot.label}".`);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Could not save tournament progress. Try again.';
+      Alert.alert('Save failed', message);
     }
   }, [persistCurrentSession]);
 
