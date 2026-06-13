@@ -13,6 +13,7 @@ import {
   clearTournamentSession,
   describeSavedSession,
   loadTournamentSession,
+  normalizeTournamentState,
   saveTournamentSession,
 } from '@/lib/tournament-persistence';
 import {
@@ -53,6 +54,37 @@ function shufflePlayers(players: ParticipantInput[]): ParticipantInput[] {
   return shuffled;
 }
 
+function tournamentNeedsNormalization(state: TournamentState): boolean {
+  return !Array.isArray(state.players) || !state.controllerAssignments;
+}
+
+function repairTournamentState(
+  state: TournamentState | null,
+  setupPlayers: ParticipantInput[],
+): TournamentState | null {
+  if (!state) return null;
+
+  const normalized = normalizeTournamentState(state);
+  if (normalized.rounds.length > 0) return normalized;
+
+  const inputs =
+    setupPlayers.length > 0
+      ? setupPlayers
+      : normalized.participants.map((participant) => ({
+          name: participant.name,
+          imageUri: participant.imageUri,
+        }));
+
+  if (inputs.length < MIN_PARTICIPANTS) return normalized;
+
+  const rebuilt = normalizeTournamentState(createTournament(inputs));
+  return {
+    ...rebuilt,
+    players: normalized.players,
+    controllerAssignments: normalized.controllerAssignments,
+  };
+}
+
 export function useTournament() {
   const [phase, setPhase] = useState<TournamentPhase>('setup');
   const [setupPlayers, setSetupPlayers] = useState<ParticipantInput[]>(createEmptyPlayers(4));
@@ -82,8 +114,13 @@ export function useTournament() {
 
       if (session) {
         setSetupPlayers(session.setupPlayers);
-        setTournament(session.tournament);
-        setHistory(session.history);
+        setTournament(
+          repairTournamentState(
+            session.tournament ? normalizeTournamentState(session.tournament) : null,
+            session.setupPlayers,
+          ),
+        );
+        setHistory(session.history.map(normalizeTournamentState));
         setPhase(session.phase);
         setHasSavedSession(true);
         setSavedSessionSummary(describeSavedSession(session));
@@ -98,6 +135,21 @@ export function useTournament() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    setTournament((current) => {
+      if (!current) return current;
+      const repaired = repairTournamentState(current, setupPlayers);
+      if (!repaired || !tournamentNeedsNormalization(repaired)) return repaired;
+      return normalizeTournamentState(repaired);
+    });
+    setHistory((past) => {
+      if (!past.some(tournamentNeedsNormalization)) return past;
+      return past.map(normalizeTournamentState);
+    });
+  }, [isHydrated, setupPlayers]);
 
   const persistCurrentSession = useCallback(async () => {
     const savedAt = await saveTournamentSession({
@@ -175,7 +227,7 @@ export function useTournament() {
             { name: 'Player 1', imageUri: null },
             { name: 'Player 2', imageUri: null },
           ];
-    const next = createTournament(inputs);
+    const next = normalizeTournamentState(createTournament(inputs));
     setTournament(next);
     setHistory([]);
     setPhase('bracket');
@@ -199,7 +251,7 @@ export function useTournament() {
     setTournament((current) => {
       if (!current) return current;
 
-      const next = selectMatchWinner(current, matchId, participantId);
+      const next = normalizeTournamentState(selectMatchWinner(current, matchId, participantId));
       if (next === current) return current;
 
       setHistory((past) => [...past, cloneTournamentState(current)]);
@@ -212,7 +264,7 @@ export function useTournament() {
       if (past.length === 0) return past;
 
       const previous = past[past.length - 1];
-      setTournament(cloneTournamentState(previous));
+      setTournament(normalizeTournamentState(cloneTournamentState(previous)));
       return past.slice(0, -1);
     });
   }, []);
@@ -220,14 +272,14 @@ export function useTournament() {
   const confirmPlayers = useCallback((names: string[]) => {
     setTournament((current) => {
       if (!current) return current;
-      return assignControllers(current, names);
+      return normalizeTournamentState(assignControllers(current, names));
     });
   }, []);
 
   const reassignController = useCallback((participantId: string, playerId: string) => {
     setTournament((current) => {
       if (!current) return current;
-      return reassignParticipantController(current, participantId, playerId);
+      return normalizeTournamentState(reassignParticipantController(current, participantId, playerId));
     });
   }, []);
 

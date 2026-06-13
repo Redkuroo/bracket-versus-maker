@@ -465,10 +465,10 @@ export function reassignParticipantController(
 
 export function getControllerName(
   participantId: string | null | undefined,
-  players: TournamentPlayer[],
-  assignments: Record<string, string>,
+  players: TournamentPlayer[] | undefined,
+  assignments: Record<string, string> | undefined,
 ): string | null {
-  if (!participantId) return null;
+  if (!participantId || !players?.length || !assignments) return null;
   const playerId = assignments[participantId];
   if (!playerId) return null;
   return players.find((player) => player.id === playerId)?.name ?? null;
@@ -547,6 +547,7 @@ export function getBracketVisualBounds(
   roundLabelHeight: number,
   matchWidth: number,
   roundGap: number,
+  matchNodeOverflow = 0,
 ): BracketVisualBounds {
   if (rounds.length === 0) {
     return { top: 0, height: unitHeight, width: 0, treeHeight: unitHeight + roundLabelHeight };
@@ -571,7 +572,7 @@ export function getBracketVisualBounds(
           round.matches.length,
           matchNodeHeight,
         ) + verticalOffset;
-      maxMatchBottom = Math.max(maxMatchBottom, top + matchNodeHeight);
+      maxMatchBottom = Math.max(maxMatchBottom, top + matchNodeHeight + matchNodeOverflow);
     }
   }
 

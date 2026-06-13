@@ -31,6 +31,8 @@ export const BracketLayout = {
   canvasPadding: 24,
   connectorArm: 22,
   roundLabelHeight: 28,
+  /** Extra vertical room for controller labels below participant names. */
+  matchNodeOverflow: 20,
 } as const;
 
 export function neonGlow(color: string, radius = 8) {

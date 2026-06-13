@@ -23,7 +23,7 @@ function isParticipantInput(value: unknown): value is ParticipantInput {
   return isRecord(value) && typeof value.name === 'string';
 }
 
-function normalizeTournamentState(value: TournamentState): TournamentState {
+export function normalizeTournamentState(value: TournamentState): TournamentState {
   return {
     ...value,
     players: Array.isArray(value.players) ? value.players : [],
