@@ -11,6 +11,7 @@ type TournamentStatusBarProps = {
   totalMatches: number;
   completedMatches: number;
   showWinPayout?: boolean;
+  roundPayouts?: Record<number, number>;
 };
 
 export function TournamentStatusBar({
@@ -18,9 +19,13 @@ export function TournamentStatusBar({
   totalMatches,
   completedMatches,
   showWinPayout = false,
+  roundPayouts,
 }: TournamentStatusBarProps) {
   const progress = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
-  const winPayout = activeMatch && showWinPayout ? getRoundWinPayout(activeMatch.roundIndex) : null;
+  const winPayout =
+    activeMatch && showWinPayout
+      ? getRoundWinPayout(activeMatch.roundIndex, roundPayouts)
+      : null;
 
   return (
     <View style={styles.container}>

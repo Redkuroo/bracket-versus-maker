@@ -52,6 +52,8 @@ export type TournamentState = {
   players: TournamentPlayer[];
   /** Maps participant id → controlling player id (Round 1 assignments persist by participant). */
   controllerAssignments: Record<string, string>;
+  /** Peso reward per bracket round index when a match is won. */
+  roundPayouts: Record<number, number>;
 };
 
 export type TournamentPhase = 'setup' | 'bracket';

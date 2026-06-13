@@ -7,6 +7,7 @@ import { BracketCanvas } from '@/components/bracket/BracketCanvas';
 import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { ReassignControllerModal } from '@/components/bracket/ReassignControllerModal';
+import { RoundPayoutsModal } from '@/components/bracket/RoundPayoutsModal';
 import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
 import { PlayerPocketBar } from '@/components/bracket/PlayerPocketBar';
@@ -19,6 +20,7 @@ const MIN_BRACKET_HEIGHT = 320;
 export function TournamentScreen() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const [showRoundPayouts, setShowRoundPayouts] = useState(false);
   const [reassignTargetId, setReassignTargetId] = useState<string | null>(null);
   const [screenHeight, setScreenHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -48,10 +50,12 @@ export function TournamentScreen() {
     reassignController,
     reshuffleRoundControllers,
     roundShuffleTarget,
+    saveRoundPayouts,
   } = useTournament();
 
   const tournamentPlayers = tournament?.players ?? [];
   const controllerAssignments = tournament?.controllerAssignments ?? {};
+  const roundPayouts = tournament?.roundPayouts ?? {};
 
   const bracketViewport = useMemo(() => {
     const width = windowWidth - 32;
@@ -155,6 +159,12 @@ export function TournamentScreen() {
                 />
               ) : null}
               <HudButton
+                label="Payouts"
+                variant="ghost"
+                onPress={() => setShowRoundPayouts(true)}
+                style={styles.actionButton}
+              />
+              <HudButton
                 label={tournamentPlayers.length > 0 ? 'Edit Players' : 'Add Players'}
                 variant="ghost"
                 onPress={() => setShowAddPlayers(true)}
@@ -188,6 +198,7 @@ export function TournamentScreen() {
               totalMatches={matchStats.total}
               completedMatches={matchStats.completed}
               showWinPayout={tournamentPlayers.length > 0}
+              roundPayouts={roundPayouts}
             />
           )}
 
@@ -211,6 +222,14 @@ export function TournamentScreen() {
           initialNames={tournamentPlayers.map((player) => player.name)}
           onConfirm={confirmPlayers}
           onClose={() => setShowAddPlayers(false)}
+        />
+
+        <RoundPayoutsModal
+          visible={showRoundPayouts}
+          rounds={tournament.rounds}
+          roundPayouts={roundPayouts}
+          onConfirm={saveRoundPayouts}
+          onClose={() => setShowRoundPayouts(false)}
         />
 
         {reassignTarget && (

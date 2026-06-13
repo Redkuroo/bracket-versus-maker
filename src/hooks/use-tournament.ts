@@ -5,11 +5,13 @@ import { PRESET_ROSTER } from '@/data/preset-roster';
 import {
   assignControllers,
   cloneTournamentState,
+  createDefaultRoundPayouts,
   createTournament,
   getRoundShuffleTarget,
   reassignParticipantController,
   selectMatchWinner,
   shuffleControllersForRound,
+  updateRoundPayouts,
 } from '@/lib/bracket-engine';
 import {
   clearTournamentSession,
@@ -57,7 +59,7 @@ function shufflePlayers(players: ParticipantInput[]): ParticipantInput[] {
 }
 
 function tournamentNeedsNormalization(state: TournamentState): boolean {
-  return !Array.isArray(state.players) || !state.controllerAssignments;
+  return !Array.isArray(state.players) || !state.controllerAssignments || !state.roundPayouts;
 }
 
 function repairTournamentState(
@@ -84,6 +86,7 @@ function repairTournamentState(
     ...rebuilt,
     players: normalized.players,
     controllerAssignments: normalized.controllerAssignments,
+    roundPayouts: normalized.roundPayouts,
   };
 }
 
@@ -315,6 +318,13 @@ export function useTournament() {
     });
   }, []);
 
+  const saveRoundPayouts = useCallback((roundPayouts: Record<number, number>) => {
+    setTournament((current) => {
+      if (!current) return current;
+      return normalizeTournamentState(updateRoundPayouts(current, roundPayouts));
+    });
+  }, []);
+
   const roundShuffleTarget = useMemo(
     () => (tournament ? getRoundShuffleTarget(tournament) : null),
     [tournament],
@@ -356,5 +366,6 @@ export function useTournament() {
     reassignController,
     reshuffleRoundControllers,
     roundShuffleTarget,
+    saveRoundPayouts,
   };
 }

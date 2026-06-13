@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { createDefaultRoundPayouts } from '@/lib/bracket-engine';
 import type { TournamentPhase, TournamentState } from '@/types/bracket';
 import type { ParticipantInput } from '@/types/roster';
 
@@ -24,6 +25,18 @@ function isParticipantInput(value: unknown): value is ParticipantInput {
 }
 
 export function normalizeTournamentState(value: TournamentState): TournamentState {
+  const defaults = createDefaultRoundPayouts(value.rounds);
+  const roundPayouts = { ...defaults };
+
+  if (value.roundPayouts && typeof value.roundPayouts === 'object') {
+    for (const [key, amount] of Object.entries(value.roundPayouts)) {
+      const roundIndex = Number(key);
+      if (!Number.isNaN(roundIndex) && typeof amount === 'number' && amount >= 0) {
+        roundPayouts[roundIndex] = Math.floor(amount);
+      }
+    }
+  }
+
   return {
     ...value,
     players: Array.isArray(value.players)
@@ -36,6 +49,7 @@ export function normalizeTournamentState(value: TournamentState): TournamentStat
       value.controllerAssignments && typeof value.controllerAssignments === 'object'
         ? value.controllerAssignments
         : {},
+    roundPayouts,
   };
 }
 

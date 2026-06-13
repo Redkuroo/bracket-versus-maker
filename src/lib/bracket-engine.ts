@@ -155,8 +155,22 @@ function getRoundLabel(roundIndex: number, totalRounds: number): string {
   return `ROUND ${roundIndex + 1}`;
 }
 
-/** Peso reward for winning a match in this bracket round (Round 1 = ₱1, Round 2 = ₱2, …). */
-export function getRoundWinPayout(roundIndex: number): number {
+/** Default peso reward per round (Round 1 = ₱1, Round 2 = ₱2, …). */
+export function createDefaultRoundPayouts(rounds: BracketRound[]): Record<number, number> {
+  const payouts: Record<number, number> = {};
+  for (const round of rounds) {
+    payouts[round.index] = round.index + 1;
+  }
+  return payouts;
+}
+
+/** Peso reward for winning a match in this bracket round. */
+export function getRoundWinPayout(
+  roundIndex: number,
+  roundPayouts?: Record<number, number>,
+): number {
+  const configured = roundPayouts?.[roundIndex];
+  if (typeof configured === 'number' && configured >= 0) return configured;
   return Math.max(1, roundIndex + 1);
 }
 
@@ -169,16 +183,35 @@ function awardPocketMoney(
   controllerAssignments: Record<string, string>,
   winnerParticipantId: string,
   roundIndex: number,
+  roundPayouts?: Record<number, number>,
 ): TournamentPlayer[] {
   const controllerId = controllerAssignments[winnerParticipantId];
   if (!controllerId || players.length === 0) return players;
 
-  const payout = getRoundWinPayout(roundIndex);
+  const payout = getRoundWinPayout(roundIndex, roundPayouts);
   return players.map((player) =>
     player.id === controllerId
       ? { ...player, pocketMoney: (player.pocketMoney ?? 0) + payout }
       : player,
   );
+}
+
+export function updateRoundPayouts(
+  state: TournamentState,
+  roundPayouts: Record<number, number>,
+): TournamentState {
+  const next = cloneTournamentState(state);
+  const sanitized = createDefaultRoundPayouts(state.rounds);
+
+  for (const round of state.rounds) {
+    const value = roundPayouts[round.index];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+      sanitized[round.index] = Math.floor(value);
+    }
+  }
+
+  next.roundPayouts = sanitized;
+  return next;
 }
 
 function cloneRounds(rounds: BracketRound[]): BracketRound[] {
@@ -199,6 +232,7 @@ export function cloneTournamentState(state: TournamentState): TournamentState {
     participants: state.participants.map((participant) => ({ ...participant })),
     players: (state.players ?? []).map((player) => ({ ...player })),
     controllerAssignments: { ...(state.controllerAssignments ?? {}) },
+    roundPayouts: { ...(state.roundPayouts ?? createDefaultRoundPayouts(state.rounds)) },
     rounds: cloneRounds(state.rounds),
   };
 }
@@ -301,7 +335,9 @@ function applyActiveMatch(rounds: BracketRound[], activeMatchId: string | null):
   return nextActive;
 }
 
-function finalizeState(rounds: BracketRound[]): Omit<TournamentState, 'participants' | 'players' | 'controllerAssignments'> {
+function finalizeState(
+  rounds: BracketRound[],
+): Omit<TournamentState, 'participants' | 'players' | 'controllerAssignments' | 'roundPayouts'> {
   refreshAllMatchStatuses(rounds);
   const activeMatchId = applyActiveMatch(rounds, findActiveMatchId(rounds));
   return {
@@ -384,6 +420,7 @@ export function createTournament(participantInputs: ParticipantInput[]): Tournam
     participants,
     players: [],
     controllerAssignments: {},
+    roundPayouts: createDefaultRoundPayouts(rounds),
   };
 }
 
@@ -423,6 +460,7 @@ export function selectMatchWinner(
     state.controllerAssignments,
     winnerParticipantId,
     targetMatch.roundIndex,
+    state.roundPayouts,
   );
 
   return {
@@ -430,6 +468,7 @@ export function selectMatchWinner(
     participants: state.participants,
     players,
     controllerAssignments: state.controllerAssignments,
+    roundPayouts: state.roundPayouts ?? createDefaultRoundPayouts(state.rounds),
   };
 }
 
