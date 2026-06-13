@@ -446,3 +446,59 @@ export function getCanvasHeight(rounds: BracketRound[], unitHeight: number): num
   if (rounds.length === 0) return unitHeight;
   return rounds[0].matches.length * unitHeight * 2;
 }
+
+export type BracketVisualBounds = {
+  top: number;
+  height: number;
+  width: number;
+  treeHeight: number;
+};
+
+/** Tight bounds around placed matches — excludes empty vertical padding used for tree alignment. */
+export function getBracketVisualBounds(
+  rounds: BracketRound[],
+  unitHeight: number,
+  matchNodeHeight: number,
+  roundLabelHeight: number,
+  matchWidth: number,
+  roundGap: number,
+): BracketVisualBounds {
+  if (rounds.length === 0) {
+    return { top: 0, height: unitHeight, width: 0, treeHeight: unitHeight + roundLabelHeight };
+  }
+
+  const firstRoundMatchCount = rounds[0].matches.length;
+  const verticalOffset = getBracketVerticalOffset(rounds, unitHeight, matchNodeHeight);
+  const canvasHeight = getCanvasHeight(rounds, unitHeight);
+  const treeHeight = canvasHeight + roundLabelHeight;
+  const width = rounds.length * (matchWidth + roundGap) - roundGap;
+
+  let minMatchTop = Infinity;
+  let maxMatchBottom = 0;
+
+  for (const round of rounds) {
+    for (let matchIndex = 0; matchIndex < round.matches.length; matchIndex += 1) {
+      const top =
+        getMatchTop(
+          round.index,
+          matchIndex,
+          unitHeight,
+          firstRoundMatchCount,
+          round.matches.length,
+          matchNodeHeight,
+        ) + verticalOffset;
+      minMatchTop = Math.min(minMatchTop, top);
+      maxMatchBottom = Math.max(maxMatchBottom, top + matchNodeHeight);
+    }
+  }
+
+  const top = roundLabelHeight + minMatchTop;
+  const bottom = roundLabelHeight + maxMatchBottom;
+
+  return {
+    top,
+    height: bottom - top,
+    width,
+    treeHeight,
+  };
+}
