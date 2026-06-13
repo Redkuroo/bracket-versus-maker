@@ -5,7 +5,7 @@ import type {
   Participant,
   TournamentState,
 } from '@/types/bracket';
-import { MIN_PARTICIPANTS } from '@/types/bracket';
+import { MIN_PARTICIPANTS, BracketSlotLabels, type BracketSlotKind } from '@/types/bracket';
 
 function nextPowerOfTwo(value: number): number {
   let size = 1;
@@ -14,7 +14,7 @@ function nextPowerOfTwo(value: number): number {
 }
 
 function byeSlot(): BracketSlot {
-  return { participantId: null, name: '—', isBye: true };
+  return { participantId: null, name: BracketSlotLabels.bye, isBye: true };
 }
 
 /** Bracket slot order for seed 1..bracketSize (standard single-elimination layout). */
@@ -34,12 +34,36 @@ export function generateSeedOrder(bracketSize: number): number[] {
 }
 
 export function getBracketInfo(playerCount: number) {
-  const bracketSize = nextPowerOfTwo(Math.max(playerCount, MIN_PARTICIPANTS));
+  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
+  const bracketSize = nextPowerOfTwo(safeCount);
+  const byeCount = bracketSize - safeCount;
+
   return {
+    playerCount: safeCount,
     bracketSize,
-    byeCount: bracketSize - playerCount,
+    byeCount,
+    isPerfectBracket: safeCount === bracketSize,
+    formula: `${bracketSize} slots − ${safeCount} players = ${byeCount} bye${byeCount === 1 ? '' : 's'}`,
   };
 }
+
+export type BracketInfo = ReturnType<typeof getBracketInfo>;
+
+export function getBracketSlotPreview(participantNames: string[], playerCount: number) {
+  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
+  const { bracketSize } = getBracketInfo(safeCount);
+  const names = Array.from({ length: safeCount }, (_, index) => participantNames[index] ?? '');
+  const participants = createParticipants(names);
+  const slots = seedBracketSlots(participants, bracketSize);
+
+  return slots.map((slot, index) => ({
+    slotNumber: index + 1,
+    label: getSlotDisplayLabel(slot),
+    kind: getSlotKind(slot),
+  }));
+}
+
+export type BracketSlotPreview = ReturnType<typeof getBracketSlotPreview>[number];
 
 function seedBracketSlots(participants: Participant[], bracketSize: number): BracketSlot[] {
   const slots: BracketSlot[] = Array.from({ length: bracketSize }, () => byeSlot());
@@ -56,7 +80,23 @@ function seedBracketSlots(participants: Participant[], bracketSize: number): Bra
 }
 
 function emptySlot(): BracketSlot {
-  return { participantId: null, name: '—', isBye: false };
+  return { participantId: null, name: BracketSlotLabels.empty, isBye: false };
+}
+
+export function isPowerOfTwo(value: number): boolean {
+  return value > 0 && (value & (value - 1)) === 0;
+}
+
+export function getSlotKind(slot: BracketSlot): BracketSlotKind {
+  if (slot.participantId) return 'player';
+  if (slot.isBye) return 'bye';
+  return 'empty';
+}
+
+export function getSlotDisplayLabel(slot: BracketSlot): string {
+  if (slot.participantId) return slot.name;
+  if (slot.isBye) return BracketSlotLabels.bye;
+  return BracketSlotLabels.empty;
 }
 
 function slotFromParticipant(participant: Participant): BracketSlot {

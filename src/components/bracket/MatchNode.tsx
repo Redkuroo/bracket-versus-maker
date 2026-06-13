@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { PlayerCard } from '@/components/bracket/PlayerCard';
 import { HudText } from '@/components/bracket/HudText';
 import { BracketLayout, Netrunner, neonGlow } from '@/constants/netrunner-theme';
+import { getSlotKind } from '@/lib/bracket-engine';
 import type { BracketMatch, BracketSlot } from '@/types/bracket';
 
 type MatchNodeProps = {
@@ -63,18 +64,17 @@ function MatchSlot({
   disabled: boolean;
   onPress: () => void;
 }) {
-  if (slot.isBye && !slot.participantId) {
-    return <View style={styles.openSlot} />;
-  }
+  const variant = getSlotKind(slot);
 
   return (
     <PlayerCard
       name={slot.name}
+      variant={variant}
       isActive={isActive}
-      isBye={false}
+      isBye={variant === 'bye'}
       isLoser={isLoser}
       isWinner={isWinner}
-      disabled={disabled}
+      disabled={disabled || variant !== 'player'}
       onPress={onPress}
     />
   );
@@ -106,14 +106,5 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 1,
     backgroundColor: Netrunner.border,
-  },
-  openSlot: {
-    minHeight: BracketLayout.slotHeight,
-    borderWidth: 1,
-    borderColor: Netrunner.border,
-    borderStyle: 'dashed',
-    borderRadius: 0,
-    backgroundColor: '#040E16',
-    opacity: 0.55,
   },
 });

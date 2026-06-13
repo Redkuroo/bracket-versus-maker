@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 
 import { HudButton } from '@/components/bracket/HudButton';
+import { BracketMathSummary } from '@/components/bracket/BracketMathSummary';
+import { BracketSlotPreviewList } from '@/components/bracket/BracketSlotPreviewList';
 import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
 import { Netrunner } from '@/constants/netrunner-theme';
-import { getBracketInfo } from '@/lib/bracket-engine';
+import { getBracketInfo, getBracketSlotPreview } from '@/lib/bracket-engine';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
 
@@ -80,6 +82,7 @@ export function SetupPanel({
   };
 
   const bracketInfo = getBracketInfo(participantCount);
+  const slotPreview = getBracketSlotPreview(participantNames, participantCount);
 
   const focusInput = (ref: ViewType | null) => {
     scrollInputIntoView(ref);
@@ -140,18 +143,15 @@ export function SetupPanel({
                 );
               })}
             </View>
+            <BracketMathSummary info={bracketInfo} />
           </View>
 
           <View style={styles.section}>
             <HudText variant="label" color={Netrunner.primary}>
               Player / Team Names
             </HudText>
-            <HudText variant="caption">
-              {participantCount} player{participantCount === 1 ? '' : 's'} · {bracketInfo.bracketSize}-slot
-              bracket
-              {bracketInfo.byeCount > 0
-                ? ` · ${bracketInfo.byeCount} first-round byes for top seeds (hidden)`
-                : ''}
+            <HudText variant="caption" color={Netrunner.textMuted}>
+              Enter names for all {participantCount} players.
             </HudText>
             <View style={styles.nameGrid}>
               {Array.from({ length: participantCount }, (_, index) => (
@@ -171,6 +171,8 @@ export function SetupPanel({
               ))}
             </View>
           </View>
+
+          <BracketSlotPreviewList slots={slotPreview} />
 
           <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
         </View>
