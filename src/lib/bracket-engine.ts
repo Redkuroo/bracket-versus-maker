@@ -160,47 +160,41 @@ function cloneRounds(rounds: BracketRound[]): BracketRound[] {
   }));
 }
 
+function isByeWalkover(match: BracketMatch): boolean {
+  const { slotA, slotB } = match;
+  if (slotA.isBye && slotB.isBye) return false;
+  if (!slotA.isBye && !slotB.isBye) return false;
+  const playerSlot = slotA.isBye ? slotB : slotA;
+  return Boolean(playerSlot.participantId);
+}
+
 function refreshMatchStatus(match: BracketMatch): void {
   if (match.winnerId) {
     match.status = 'complete';
     return;
   }
 
-  const hasA = Boolean(match.slotA.participantId);
-  const hasB = Boolean(match.slotB.participantId);
+  const { slotA, slotB } = match;
+
+  if (slotA.isBye && slotB.isBye) {
+    match.status = 'complete';
+    return;
+  }
+
+  if (isByeWalkover(match)) {
+    match.status = 'ready';
+    return;
+  }
+
+  const hasA = Boolean(slotA.participantId);
+  const hasB = Boolean(slotB.participantId);
 
   if (hasA && hasB) {
     match.status = 'ready';
     return;
   }
 
-  if (hasA || hasB) {
-    match.status = 'pending';
-    return;
-  }
-
   match.status = 'pending';
-}
-
-function resolveByeMatch(rounds: BracketRound[], match: BracketMatch): boolean {
-  const { slotA, slotB } = match;
-  const aBye = slotA.isBye;
-  const bBye = slotB.isBye;
-
-  if (!aBye && !bBye) return false;
-
-  if (aBye && bBye) {
-    match.status = 'complete';
-    return true;
-  }
-
-  const winnerSlot = aBye ? slotB : slotA;
-  if (!winnerSlot.participantId || !match.advanceTo) return false;
-
-  match.winnerId = winnerSlot.participantId;
-  match.status = 'complete';
-  placeWinner(rounds, match, winnerSlot.participantId, winnerSlot.name);
-  return true;
 }
 
 function placeWinner(
@@ -236,17 +230,10 @@ function findChampionId(rounds: BracketRound[]): string | null {
   return finalRound?.matches[0]?.winnerId ?? null;
 }
 
-function processAutoAdvances(rounds: BracketRound[]): void {
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const round of rounds) {
-      for (const match of round.matches) {
-        refreshMatchStatus(match);
-        if (match.status === 'ready' && resolveByeMatch(rounds, match)) {
-          changed = true;
-        }
-      }
+function refreshAllMatchStatuses(rounds: BracketRound[]): void {
+  for (const round of rounds) {
+    for (const match of round.matches) {
+      refreshMatchStatus(match);
     }
   }
 }
@@ -276,7 +263,7 @@ function applyActiveMatch(rounds: BracketRound[], activeMatchId: string | null):
 }
 
 function finalizeState(rounds: BracketRound[]): TournamentState {
-  processAutoAdvances(rounds);
+  refreshAllMatchStatuses(rounds);
   const activeMatchId = applyActiveMatch(rounds, findActiveMatchId(rounds));
   return {
     rounds,
