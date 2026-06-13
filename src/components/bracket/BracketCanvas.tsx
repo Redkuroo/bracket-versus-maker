@@ -7,12 +7,13 @@ import { BracketLayout } from '@/constants/netrunner-theme';
 import { getBracketVerticalOffset, getCanvasHeight } from '@/lib/bracket-engine';
 import type { TournamentState } from '@/types/bracket';
 
-const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.5;
+/** Prevents zero/inverted scale; not a practical zoom-out cap. */
+const SCALE_EPSILON = 0.001;
 
-function clamp(value: number, lower: number, upper: number) {
+function clampScale(value: number) {
   'worklet';
-  return Math.min(upper, Math.max(lower, value));
+  return Math.min(MAX_SCALE, Math.max(SCALE_EPSILON, value));
 }
 
 type BracketCanvasProps = {
@@ -44,7 +45,7 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
 
   const pinch = Gesture.Pinch()
     .onUpdate((event) => {
-      scale.value = clamp(savedScale.value * event.scale, MIN_SCALE, MAX_SCALE);
+      scale.value = clampScale(savedScale.value * event.scale);
     })
     .onEnd(() => {
       savedScale.value = scale.value;
