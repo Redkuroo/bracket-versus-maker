@@ -473,7 +473,6 @@ export function getBracketVisualBounds(
   const treeHeight = canvasHeight + roundLabelHeight;
   const width = rounds.length * (matchWidth + roundGap) - roundGap;
 
-  let minMatchTop = Infinity;
   let maxMatchBottom = 0;
 
   for (const round of rounds) {
@@ -487,12 +486,11 @@ export function getBracketVisualBounds(
           round.matches.length,
           matchNodeHeight,
         ) + verticalOffset;
-      minMatchTop = Math.min(minMatchTop, top);
       maxMatchBottom = Math.max(maxMatchBottom, top + matchNodeHeight);
     }
   }
 
-  const top = roundLabelHeight + minMatchTop;
+  const top = 0;
   const bottom = roundLabelHeight + maxMatchBottom;
 
   return {
