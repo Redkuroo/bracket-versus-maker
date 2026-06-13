@@ -13,6 +13,7 @@ import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
 import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
+import { PRESET_ROSTER } from '@/data/preset-roster';
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
@@ -20,8 +21,10 @@ import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
 type SetupPanelProps = {
   participantCount: number;
   participantNames: string[];
+  participantImageUris: (string | null)[];
   onChangeCount: (count: number) => void;
   onChangeName: (index: number, name: string) => void;
+  onLoadPreset: () => void;
   onStart: () => void;
 };
 
@@ -30,8 +33,10 @@ const QUICK_COUNTS = [2, 4, 8, 16, 32, 64, 128] as const;
 export function SetupPanel({
   participantCount,
   participantNames,
+  participantImageUris,
   onChangeCount,
   onChangeName,
+  onLoadPreset,
   onStart,
 }: SetupPanelProps) {
   const [countDraft, setCountDraft] = useState(String(participantCount));
@@ -142,6 +147,21 @@ export function SetupPanel({
 
           <View style={styles.section}>
             <HudText variant="label" color={Netrunner.primary}>
+              Preset roster
+            </HudText>
+            <HudText variant="caption" color={Netrunner.textMuted}>
+              Edit src/data/preset-roster.ts with player names and image URLs, then load here.
+              Bracket size follows the array length ({PRESET_ROSTER.players.length} in preset).
+            </HudText>
+            <HudButton
+              label={`Load "${PRESET_ROSTER.label}"`}
+              variant="ghost"
+              onPress={onLoadPreset}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <HudText variant="label" color={Netrunner.primary}>
               Player / Team Names
             </HudText>
             <HudText variant="caption" color={Netrunner.textMuted}>
@@ -156,6 +176,7 @@ export function SetupPanel({
                     <PlayerAvatar
                       name={displayName}
                       participantId={`p-${index}`}
+                      imageUri={participantImageUris[index] ?? null}
                       size={48}
                     />
                     <View style={styles.participantInput}>

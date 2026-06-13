@@ -6,6 +6,7 @@ import type {
   TournamentState,
 } from '@/types/bracket';
 import { MIN_PARTICIPANTS, BracketSlotLabels, type BracketSlotKind } from '@/types/bracket';
+import type { ParticipantInput } from '@/types/roster';
 
 type MatchKey = `${number}:${number}`;
 type AdvanceTarget = {
@@ -165,6 +166,14 @@ function cloneRounds(rounds: BracketRound[]): BracketRound[] {
   }));
 }
 
+export function cloneTournamentState(state: TournamentState): TournamentState {
+  return {
+    ...state,
+    participants: state.participants.map((participant) => ({ ...participant })),
+    rounds: cloneRounds(state.rounds),
+  };
+}
+
 function isByeWalkover(match: BracketMatch): boolean {
   const { slotA, slotB } = match;
   if (slotA.isBye && slotB.isBye) return false;
@@ -274,19 +283,17 @@ function finalizeState(rounds: BracketRound[]): TournamentState {
   };
 }
 
-export function createParticipants(names: string[]): Participant[] {
-  const trimmed = names.map((name, index) => name.trim() || `Player ${index + 1}`);
-
-  return trimmed.map((name, index) => ({
+export function createParticipants(inputs: ParticipantInput[]): Participant[] {
+  return inputs.map((input, index) => ({
     id: `p-${index}`,
-    name,
-    imageUri: null,
+    name: input.name.trim() || `Player ${index + 1}`,
+    imageUri: input.imageUri ?? null,
     isBye: false,
   }));
 }
 
-export function createTournament(participantNames: string[]): TournamentState {
-  const participants = createParticipants(participantNames);
+export function createTournament(participantInputs: ParticipantInput[]): TournamentState {
+  const participants = createParticipants(participantInputs);
   const playerCount = Math.max(participants.length, MIN_PARTICIPANTS);
   const { matchCounts, incomingBye } = computeRoundStructure(playerCount);
   const advanceLinks = buildAdvanceLinks(matchCounts, incomingBye);

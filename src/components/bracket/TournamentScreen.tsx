@@ -15,13 +15,17 @@ export function TournamentScreen() {
     phase,
     participantCount,
     participantNames,
+    participantImageUris,
     tournament,
     champion,
+    canUndo,
     syncNameFields,
     updateParticipantName,
+    loadPresetRoster,
     startTournament,
-    resetTournament,
+    goHome,
     pickWinner,
+    undoLastPick,
   } = useTournament();
 
   const activeMatch = useMemo(() => {
@@ -50,8 +54,10 @@ export function TournamentScreen() {
           <SetupPanel
             participantCount={participantCount}
             participantNames={participantNames}
+            participantImageUris={participantImageUris}
             onChangeCount={syncNameFields}
             onChangeName={updateParticipantName}
+            onLoadPreset={loadPresetRoster}
             onStart={startTournament}
           />
         </View>
@@ -69,7 +75,16 @@ export function TournamentScreen() {
             </HudText>
             <HudText variant="caption">Pinch to zoom · drag to pan · tap a card to advance</HudText>
           </View>
-          <HudButton label="Reset" variant="ghost" onPress={resetTournament} style={styles.resetButton} />
+          <View style={styles.topBarActions}>
+            <HudButton
+              label="Undo"
+              variant="ghost"
+              onPress={undoLastPick}
+              disabled={!canUndo}
+              style={styles.actionButton}
+            />
+            <HudButton label="Home" variant="ghost" onPress={goHome} style={styles.actionButton} />
+          </View>
         </View>
 
         {champion ? (
@@ -113,8 +128,16 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  resetButton: {
-    minWidth: 88,
+  topBarActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  actionButton: {
+    minWidth: 72,
     paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 42,
   },
 });
