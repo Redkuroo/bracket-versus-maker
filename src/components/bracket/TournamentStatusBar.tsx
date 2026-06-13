@@ -2,9 +2,12 @@ import { StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { HudText } from '@/components/bracket/HudText';
-import { formatPeso, getRoundWinPayout } from '@/lib/bracket-engine';
+import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
+import { formatPeso, getRoundWinPayout, getSlotKind } from '@/lib/bracket-engine';
 import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
-import type { BracketMatch } from '@/types/bracket';
+import type { BracketMatch, BracketSlot } from '@/types/bracket';
+
+const STATUS_AVATAR_SIZE = 42;
 
 type TournamentStatusBarProps = {
   activeMatch: BracketMatch | null;
@@ -13,6 +16,41 @@ type TournamentStatusBarProps = {
   showWinPayout?: boolean;
   roundPayouts?: Record<number, number>;
 };
+
+function StatusFighter({ slot, align }: { slot: BracketSlot; align: 'left' | 'right' }) {
+  const variant = getSlotKind(slot);
+  const isLeft = align === 'left';
+
+  return (
+    <View style={[styles.fighter, isLeft ? styles.fighterLeft : styles.fighterRight]}>
+      {isLeft ? (
+        <PlayerAvatar
+          name={slot.name}
+          participantId={slot.participantId}
+          imageUri={slot.imageUri}
+          variant={variant}
+          size={STATUS_AVATAR_SIZE}
+        />
+      ) : null}
+      <HudText
+        variant="body"
+        color={Netrunner.secondary}
+        numberOfLines={2}
+        style={[styles.fighterName, !isLeft && styles.fighterNameRight]}>
+        {slot.name}
+      </HudText>
+      {!isLeft ? (
+        <PlayerAvatar
+          name={slot.name}
+          participantId={slot.participantId}
+          imageUri={slot.imageUri}
+          variant={variant}
+          size={STATUS_AVATAR_SIZE}
+        />
+      ) : null}
+    </View>
+  );
+}
 
 export function TournamentStatusBar({
   activeMatch,
@@ -48,11 +86,19 @@ export function TournamentStatusBar({
         </View>
       </View>
 
-      <HudText variant="body" color={Netrunner.secondary} numberOfLines={2}>
-        {activeMatch
-          ? `${activeMatch.slotA.name} vs ${activeMatch.slotB.name}`
-          : 'Awaiting next pairing'}
-      </HudText>
+      {activeMatch ? (
+        <View style={styles.matchup}>
+          <StatusFighter slot={activeMatch.slotA} align="left" />
+          <HudText variant="label" color={Netrunner.textMuted} style={styles.versus}>
+            VS
+          </HudText>
+          <StatusFighter slot={activeMatch.slotB} align="right" />
+        </View>
+      ) : (
+        <HudText variant="body" color={Netrunner.secondary}>
+          Awaiting next pairing
+        </HudText>
+      )}
 
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -111,6 +157,35 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: Netrunner.secondary,
     ...neonGlow(Netrunner.secondary, 6),
+  },
+  matchup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fighter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  fighterLeft: {
+    justifyContent: 'flex-start',
+  },
+  fighterRight: {
+    justifyContent: 'flex-end',
+  },
+  fighterName: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fighterNameRight: {
+    textAlign: 'right',
+  },
+  versus: {
+    letterSpacing: 2,
+    flexShrink: 0,
   },
   progressTrack: {
     height: 4,
