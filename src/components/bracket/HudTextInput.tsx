@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { HudText } from '@/components/bracket/HudText';
@@ -7,9 +8,12 @@ type HudTextInputProps = TextInputProps & {
   label: string;
 };
 
-export function HudTextInput({ label, style, ...rest }: HudTextInputProps) {
+export const HudTextInput = forwardRef<View, HudTextInputProps>(function HudTextInput(
+  { label, style, ...rest },
+  ref,
+) {
   return (
-    <View style={styles.wrapper}>
+    <View ref={ref} style={styles.wrapper}>
       <HudText variant="label" color={Netrunner.primary} style={styles.label}>
         {label}
       </HudText>
@@ -20,7 +24,7 @@ export function HudTextInput({ label, style, ...rest }: HudTextInputProps) {
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {
