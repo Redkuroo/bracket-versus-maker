@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 
 import { PRESET_ROSTER } from '@/data/preset-roster';
 import { cloneTournamentState, createTournament, selectMatchWinner } from '@/lib/bracket-engine';
@@ -99,19 +100,18 @@ export function useTournament() {
       tournament,
       history,
     });
+    const summary = describeSavedSession({
+      version: 1,
+      savedAt,
+      phase,
+      setupPlayers,
+      tournament,
+      history,
+    });
     setHasSavedSession(true);
     setLastSavedAt(savedAt);
-    setSavedSessionSummary(
-      describeSavedSession({
-        version: 1,
-        savedAt,
-        phase,
-        setupPlayers,
-        tournament,
-        history,
-      }),
-    );
-    return savedAt;
+    setSavedSessionSummary(summary);
+    return { savedAt, summary };
   }, [phase, setupPlayers, tournament, history]);
 
   useEffect(() => {
@@ -125,7 +125,12 @@ export function useTournament() {
   }, [isHydrated, phase, setupPlayers, tournament, history, persistCurrentSession]);
 
   const saveTournament = useCallback(async () => {
-    await persistCurrentSession();
+    try {
+      const { summary } = await persistCurrentSession();
+      Alert.alert('Saved', `${summary}\n\nProgress will remain after you close the app.`);
+    } catch {
+      Alert.alert('Save failed', 'Could not save tournament progress. Try again.');
+    }
   }, [persistCurrentSession]);
 
   const continueTournament = useCallback(() => {
