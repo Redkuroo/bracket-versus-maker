@@ -44,6 +44,7 @@ export function TournamentScreen() {
     shuffleRoster,
     saveTournament,
     loadSavedTournament,
+    renameSavedTournament,
     continueTournament,
     startTournament,
     goHome,
@@ -131,6 +132,7 @@ export function TournamentScreen() {
             savedTournaments={savedTournaments}
             activeSaveId={activeSaveId}
             onLoadSave={loadSavedTournament}
+            onRenameSave={renameSavedTournament}
             onStart={startTournament}
           />
         </View>

@@ -18,6 +18,7 @@ import {
   loadAllSavedTournaments,
   loadSavedTournamentById,
   normalizeTournamentState,
+  renameSavedTournament as renameSavedTournamentSlot,
   upsertSavedTournament,
   type SavedTournamentSlot,
 } from '@/lib/tournament-persistence';
@@ -210,6 +211,18 @@ export function useTournament() {
     skipPersistRef.current = false;
   }, [refreshSavedTournaments]);
 
+  const renameSavedTournament = useCallback(
+    async (saveId: string, label: string) => {
+      const slot = await renameSavedTournamentSlot(saveId, label);
+      if (!slot) {
+        Alert.alert('Rename failed', 'Could not rename that save. Try a non-empty name.');
+        return;
+      }
+      await refreshSavedTournaments();
+    },
+    [refreshSavedTournaments],
+  );
+
   const continueTournament = useCallback(() => {
     if (!tournament) return;
     setPhase('bracket');
@@ -374,6 +387,7 @@ export function useTournament() {
     shuffleRoster,
     saveTournament,
     loadSavedTournament,
+    renameSavedTournament,
     continueTournament,
     startTournament,
     goHome,

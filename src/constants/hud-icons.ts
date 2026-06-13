@@ -12,4 +12,5 @@ export const HudIcons = {
   save: { ios: 'square.and.arrow.down', android: 'save', web: 'save' },
   undo: { ios: 'arrow.uturn.backward', android: 'undo', web: 'undo' },
   home: { ios: 'house.fill', android: 'home', web: 'home' },
+  rename: { ios: 'pencil', android: 'edit', web: 'edit' },
 } as const satisfies Record<string, HudIconName>;

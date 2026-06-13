@@ -256,6 +256,22 @@ export async function deleteSavedTournament(id: string): Promise<void> {
   await writeRegistry(slots.filter((slot) => slot.id !== id));
 }
 
+export async function renameSavedTournament(
+  id: string,
+  label: string,
+): Promise<SavedTournamentSlot | null> {
+  const trimmed = label.trim();
+  if (!trimmed) return null;
+
+  const slots = await loadAllSavedTournaments();
+  const existing = slots.find((slot) => slot.id === id);
+  if (!existing) return null;
+
+  const nextSlot = { ...existing, label: trimmed };
+  await writeRegistry(slots.map((slot) => (slot.id === id ? nextSlot : slot)));
+  return nextSlot;
+}
+
 export async function clearAllSavedTournaments(): Promise<void> {
   await AsyncStorage.multiRemove([SAVES_STORAGE_KEY, LEGACY_STORAGE_KEY]);
 }

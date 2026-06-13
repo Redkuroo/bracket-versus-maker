@@ -15,7 +15,9 @@ import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
 import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
+import { RenameSaveModal } from '@/components/bracket/RenameSaveModal';
 import { PRESET_ROSTER } from '@/data/preset-roster';
+import { HudIcons } from '@/constants/hud-icons';
 import { formatSaveTimestamp } from '@/lib/tournament-persistence';
 import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
@@ -35,6 +37,7 @@ type SetupPanelProps = {
   savedTournaments?: SavedTournamentSlot[];
   activeSaveId?: string | null;
   onLoadSave?: (saveId: string) => void;
+  onRenameSave?: (saveId: string, label: string) => void;
   onStart: () => void;
 };
 
@@ -99,10 +102,12 @@ export function SetupPanel({
   savedTournaments = [],
   activeSaveId = null,
   onLoadSave,
+  onRenameSave,
   onStart,
 }: SetupPanelProps) {
   const [countDraft, setCountDraft] = useState(String(participantCount));
   const [keyboardPadding, setKeyboardPadding] = useState(0);
+  const [renameSaveId, setRenameSaveId] = useState<string | null>(null);
   const countInputRef = useRef<ViewType>(null);
   const nameInputRefs = useRef<(ViewType | null)[]>([]);
   const { scrollRef, contentRef, handleScroll, scrollInputIntoView } = useKeyboardAwareScroll();
@@ -110,6 +115,11 @@ export function SetupPanel({
   const participantIndices = useMemo(
     () => Array.from({ length: participantCount }, (_, index) => index),
     [participantCount],
+  );
+
+  const renameTarget = useMemo(
+    () => savedTournaments.find((save) => save.id === renameSaveId) ?? null,
+    [savedTournaments, renameSaveId],
   );
 
   useEffect(() => {
@@ -245,7 +255,7 @@ export function SetupPanel({
           Saved tournaments
         </HudText>
         <HudText variant="caption" color={Netrunner.textMuted}>
-          Select a save to load its roster and bracket progress.
+          Select a save to load its roster and bracket progress. Tap rename to change the save name.
         </HudText>
         {savedTournaments.length === 0 ? (
           <HudText variant="caption" color={Netrunner.textMuted}>
@@ -275,11 +285,20 @@ export function SetupPanel({
                       {save.phase === 'bracket' ? ' · In progress' : ' · Setup'}
                     </HudText>
                   </View>
-                  {selected ? (
-                    <HudText variant="label" color={Netrunner.primary}>
-                      LOADED
-                    </HudText>
-                  ) : null}
+                  <View style={styles.saveActions}>
+                    <HudButton
+                      label="Rename"
+                      icon={HudIcons.rename}
+                      variant="ghost"
+                      onPress={() => setRenameSaveId(save.id)}
+                      style={styles.saveActionButton}
+                    />
+                    {selected ? (
+                      <HudText variant="label" color={Netrunner.primary}>
+                        LOADED
+                      </HudText>
+                    ) : null}
+                  </View>
                 </Pressable>
               );
             })}
@@ -324,6 +343,14 @@ export function SetupPanel({
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
+      <RenameSaveModal
+        visible={Boolean(renameTarget)}
+        initialLabel={renameTarget?.label}
+        onConfirm={(label) => {
+          if (renameTarget) onRenameSave?.(renameTarget.id, label);
+        }}
+        onClose={() => setRenameSaveId(null)}
+      />
       <FlatList
         ref={scrollRef}
         data={participantIndices}
@@ -389,6 +416,17 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
     minWidth: 0,
+  },
+  saveActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+    flexShrink: 0,
+  },
+  saveActionButton: {
+    minWidth: 88,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    minHeight: 32,
   },
   countRow: {
     flexDirection: 'row',
