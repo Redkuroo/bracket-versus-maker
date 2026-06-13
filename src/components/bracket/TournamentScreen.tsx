@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddPlayersModal } from '@/components/bracket/AddPlayersModal';
 import { BracketCanvas } from '@/components/bracket/BracketCanvas';
@@ -12,15 +12,10 @@ import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/Tourna
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useTournament } from '@/hooks/use-tournament';
 
-const ESTIMATED_HEADER_HEIGHT = 200;
-
 export function TournamentScreen() {
   const [showAddPlayers, setShowAddPlayers] = useState(false);
   const [reassignTargetId, setReassignTargetId] = useState<string | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(ESTIMATED_HEADER_HEIGHT);
-
-  const { height: windowHeight } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const {
     phase,
@@ -49,11 +44,6 @@ export function TournamentScreen() {
 
   const tournamentPlayers = tournament?.players ?? [];
   const controllerAssignments = tournament?.controllerAssignments ?? {};
-
-  const bracketHeight = useMemo(() => {
-    const available = windowHeight - insets.top - insets.bottom - headerHeight - 12;
-    return Math.max(available, 280);
-  }, [windowHeight, insets.top, insets.bottom, headerHeight]);
 
   const reassignTarget = useMemo(() => {
     if (!tournament || !reassignTargetId) return null;
@@ -117,19 +107,16 @@ export function TournamentScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.screenBody}>
+      <View style={styles.screenRoot}>
         <View
           style={styles.headerSection}
-          onLayout={(event) => {
-            const nextHeight = event.nativeEvent.layout.height;
-            if (nextHeight > 0) setHeaderHeight(nextHeight);
-          }}>
+          onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
           <View style={styles.topBar}>
             <View style={styles.topBarCopy}>
               <HudText variant="label" color={Netrunner.primary} glow>
                 TOURNAMENT LIVE
               </HudText>
-              <HudText variant="caption">Pinch to zoom · drag to pan · tap a card to advance</HudText>
+              <HudText variant="caption">Scroll to explore · tap a card to advance</HudText>
             </View>
             <View style={styles.topBarActions}>
               <HudButton
@@ -166,7 +153,11 @@ export function TournamentScreen() {
           )}
         </View>
 
-        <View style={[styles.bracketArea, { height: bracketHeight }]}>
+        <View
+          style={[
+            styles.bracketArea,
+            headerHeight > 0 ? { top: headerHeight } : styles.bracketAreaFallback,
+          ]}>
           <BracketCanvas
             tournament={tournament}
             onSelectWinner={pickWinner}
@@ -175,25 +166,25 @@ export function TournamentScreen() {
             }
           />
         </View>
-      </View>
 
-      <AddPlayersModal
-        visible={showAddPlayers}
-        initialNames={tournamentPlayers.map((player) => player.name)}
-        onConfirm={confirmPlayers}
-        onClose={() => setShowAddPlayers(false)}
-      />
-
-      {reassignTarget && (
-        <ReassignControllerModal
-          visible={Boolean(reassignTargetId)}
-          participantName={reassignTarget.name}
-          players={tournamentPlayers}
-          currentPlayerId={controllerAssignments[reassignTarget.id]}
-          onSelect={(playerId) => reassignController(reassignTarget.id, playerId)}
-          onClose={() => setReassignTargetId(null)}
+        <AddPlayersModal
+          visible={showAddPlayers}
+          initialNames={tournamentPlayers.map((player) => player.name)}
+          onConfirm={confirmPlayers}
+          onClose={() => setShowAddPlayers(false)}
         />
-      )}
+
+        {reassignTarget && (
+          <ReassignControllerModal
+            visible={Boolean(reassignTargetId)}
+            participantName={reassignTarget.name}
+            players={tournamentPlayers}
+            currentPlayerId={controllerAssignments[reassignTarget.id]}
+            onSelect={(playerId) => reassignController(reassignTarget.id, playerId)}
+            onClose={() => setReassignTargetId(null)}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -203,8 +194,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Netrunner.background,
   },
-  screenBody: {
+  screenRoot: {
     flex: 1,
+    position: 'relative',
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
@@ -219,10 +211,16 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     gap: 14,
-    marginBottom: 12,
+    paddingBottom: 12,
   },
   bracketArea: {
-    overflow: 'hidden',
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 12,
+  },
+  bracketAreaFallback: {
+    top: 200,
   },
   topBar: {
     flexDirection: 'row',

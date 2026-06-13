@@ -66,7 +66,7 @@ export function BracketRoundColumn({
           const isActive = match.id === activeMatchId;
 
           return (
-            <View key={match.id} style={[styles.matchWrap, { top, height: matchNodeHeight }]}>
+            <View key={match.id} style={[styles.matchWrap, { top, minHeight: matchNodeHeight }]}>
               <MatchNode
                 match={match}
                 isActive={isActive}
@@ -122,11 +122,13 @@ const styles = StyleSheet.create({
   },
   matchesLayer: {
     position: 'relative',
+    overflow: 'visible',
   },
   matchWrap: {
     position: 'absolute',
     left: 0,
     width: BracketLayout.matchWidth,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    overflow: 'visible',
   },
 });
