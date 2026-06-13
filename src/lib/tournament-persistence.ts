@@ -23,8 +23,22 @@ function isParticipantInput(value: unknown): value is ParticipantInput {
   return isRecord(value) && typeof value.name === 'string';
 }
 
+function normalizeTournamentState(value: TournamentState): TournamentState {
+  return {
+    ...value,
+    players: Array.isArray(value.players) ? value.players : [],
+    controllerAssignments:
+      value.controllerAssignments && typeof value.controllerAssignments === 'object'
+        ? value.controllerAssignments
+        : {},
+  };
+}
+
 function isTournamentState(value: unknown): value is TournamentState {
-  return isRecord(value) && Array.isArray(value.rounds) && Array.isArray(value.participants);
+  if (!isRecord(value) || !Array.isArray(value.rounds) || !Array.isArray(value.participants)) {
+    return false;
+  }
+  return true;
 }
 
 function parseSession(raw: string): PersistedTournamentSession | null {
@@ -44,8 +58,8 @@ function parseSession(raw: string): PersistedTournamentSession | null {
       savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : Date.now(),
       phase: parsed.phase,
       setupPlayers: parsed.setupPlayers,
-      tournament: parsed.tournament,
-      history: parsed.history,
+      tournament: parsed.tournament ? normalizeTournamentState(parsed.tournament) : null,
+      history: parsed.history.map(normalizeTournamentState),
     };
   } catch {
     return null;

@@ -1,16 +1,21 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddPlayersModal } from '@/components/bracket/AddPlayersModal';
 import { BracketCanvas } from '@/components/bracket/BracketCanvas';
 import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
+import { ReassignControllerModal } from '@/components/bracket/ReassignControllerModal';
 import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useTournament } from '@/hooks/use-tournament';
 
 export function TournamentScreen() {
+  const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const [reassignTargetId, setReassignTargetId] = useState<string | null>(null);
+
   const {
     phase,
     participantCount,
@@ -32,7 +37,14 @@ export function TournamentScreen() {
     goHome,
     pickWinner,
     undoLastPick,
+    confirmPlayers,
+    reassignController,
   } = useTournament();
+
+  const reassignTarget = useMemo(() => {
+    if (!tournament || !reassignTargetId) return null;
+    return tournament.participants.find((participant) => participant.id === reassignTargetId) ?? null;
+  }, [tournament, reassignTargetId]);
 
   const activeMatch = useMemo(() => {
     if (!tournament?.activeMatchId) return null;
@@ -101,6 +113,12 @@ export function TournamentScreen() {
           </View>
           <View style={styles.topBarActions}>
             <HudButton
+              label={tournament.players.length > 0 ? 'Edit Players' : 'Add Players'}
+              variant="ghost"
+              onPress={() => setShowAddPlayers(true)}
+              style={styles.actionButton}
+            />
+            <HudButton
               label="Save"
               variant="ghost"
               onPress={saveTournament}
@@ -127,7 +145,31 @@ export function TournamentScreen() {
           />
         )}
 
-        <BracketCanvas tournament={tournament} onSelectWinner={pickWinner} />
+        <BracketCanvas
+          tournament={tournament}
+          onSelectWinner={pickWinner}
+          onReassignController={
+            tournament.players.length > 0 ? setReassignTargetId : undefined
+          }
+        />
+
+        <AddPlayersModal
+          visible={showAddPlayers}
+          initialNames={tournament.players.map((player) => player.name)}
+          onConfirm={confirmPlayers}
+          onClose={() => setShowAddPlayers(false)}
+        />
+
+        {reassignTarget && (
+          <ReassignControllerModal
+            visible={Boolean(reassignTargetId)}
+            participantName={reassignTarget.name}
+            players={tournament.players}
+            currentPlayerId={tournament.controllerAssignments[reassignTarget.id]}
+            onSelect={(playerId) => reassignController(reassignTarget.id, playerId)}
+            onClose={() => setReassignTargetId(null)}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

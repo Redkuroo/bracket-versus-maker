@@ -2,18 +2,18 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnUI,
-  useAnimatedStyle,
-  useSharedValue,
-  type SharedValue,
+    runOnUI,
+    useAnimatedStyle,
+    useSharedValue,
+    type SharedValue,
 } from 'react-native-reanimated';
 
 import { BracketRoundColumn } from '@/components/bracket/BracketRoundColumn';
 import { BracketLayout } from '@/constants/netrunner-theme';
 import {
-  getBracketVerticalOffset,
-  getBracketVisualBounds,
-  getCanvasHeight,
+    getBracketVerticalOffset,
+    getBracketVisualBounds,
+    getCanvasHeight,
 } from '@/lib/bracket-engine';
 import type { TournamentState } from '@/types/bracket';
 
@@ -132,9 +132,10 @@ function fitToViewport(
 type BracketCanvasProps = {
   tournament: TournamentState;
   onSelectWinner: (matchId: string, participantId: string) => void;
+  onReassignController?: (participantId: string) => void;
 };
 
-export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps) {
+export function BracketCanvas({ tournament, onSelectWinner, onReassignController }: BracketCanvasProps) {
   const unitHeight = BracketLayout.unitHeight;
   const matchNodeHeight = BracketLayout.matchNodeHeight;
   const canvasHeight = getCanvasHeight(tournament.rounds, unitHeight);
@@ -314,8 +315,11 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
                       firstRoundMatchCount={firstRoundMatchCount}
                       verticalOffset={verticalOffset}
                       activeMatchId={tournament.activeMatchId}
+                      players={tournament.players}
+                      controllerAssignments={tournament.controllerAssignments}
                       isFinal={index === tournament.rounds.length - 1}
                       onSelectWinner={onSelectWinner}
+                      onReassignController={onReassignController}
                     />
                   ))}
                 </View>

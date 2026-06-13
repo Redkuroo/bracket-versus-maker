@@ -35,11 +35,21 @@ export type Participant = {
   isBye: boolean;
 };
 
+/** A human player who controls one or more tournament participants. */
+export type TournamentPlayer = {
+  id: string;
+  name: string;
+};
+
 export type TournamentState = {
   rounds: BracketRound[];
   participants: Participant[];
   activeMatchId: string | null;
   championId: string | null;
+  /** Human players added via the Add Players flow. */
+  players: TournamentPlayer[];
+  /** Maps participant id → controlling player id (Round 1 assignments persist by participant). */
+  controllerAssignments: Record<string, string>;
 };
 
 export type TournamentPhase = 'setup' | 'bracket';

@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { PRESET_ROSTER } from '@/data/preset-roster';
-import { cloneTournamentState, createTournament, selectMatchWinner } from '@/lib/bracket-engine';
+import {
+  assignControllers,
+  cloneTournamentState,
+  createTournament,
+  reassignParticipantController,
+  selectMatchWinner,
+} from '@/lib/bracket-engine';
 import {
   clearTournamentSession,
   describeSavedSession,
@@ -211,6 +217,20 @@ export function useTournament() {
     });
   }, []);
 
+  const confirmPlayers = useCallback((names: string[]) => {
+    setTournament((current) => {
+      if (!current) return current;
+      return assignControllers(current, names);
+    });
+  }, []);
+
+  const reassignController = useCallback((participantId: string, playerId: string) => {
+    setTournament((current) => {
+      if (!current) return current;
+      return reassignParticipantController(current, participantId, playerId);
+    });
+  }, []);
+
   const canUndo = history.length > 0;
 
   const champion = useMemo(() => {
@@ -243,5 +263,7 @@ export function useTournament() {
     resetTournament,
     pickWinner,
     undoLastPick,
+    confirmPlayers,
+    reassignController,
   };
 }

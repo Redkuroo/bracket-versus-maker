@@ -1,29 +1,31 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable as RNPressable, StyleSheet, View } from 'react-native';
 import { Pressable } from 'react-native-gesture-handler';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withTiming,
 } from 'react-native-reanimated';
 
 import { HudText } from '@/components/bracket/HudText';
 import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
-import { activeBorder, Netrunner, neonGlow } from '@/constants/netrunner-theme';
-import { BracketSlotLabels } from '@/types/bracket';
+import { activeBorder, neonGlow, Netrunner } from '@/constants/netrunner-theme';
 import type { BracketSlotKind } from '@/types/bracket';
+import { BracketSlotLabels } from '@/types/bracket';
 
 type PlayerCardProps = {
   name: string;
   participantId?: string | null;
   imageUri?: string | null;
   variant?: BracketSlotKind;
+  controllerName?: string | null;
   isWinner: boolean;
   isLoser: boolean;
   isActive: boolean;
   isBye: boolean;
   disabled?: boolean;
   onPress?: () => void;
+  onControllerPress?: () => void;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -33,12 +35,14 @@ export function PlayerCard({
   participantId,
   imageUri,
   variant = 'player',
+  controllerName,
   isWinner,
   isLoser,
   isActive,
   isBye,
   disabled,
   onPress,
+  onControllerPress,
 }: PlayerCardProps) {
   const pulse = useSharedValue(1);
   const isPlaceholder = variant === 'bye' || variant === 'empty';
@@ -78,25 +82,40 @@ export function PlayerCard({
         size={34}
       />
       <View style={styles.copy}>
-        <HudText
-          variant="mono"
-          numberOfLines={1}
-          color={
-            isPlaceholder
-              ? Netrunner.textMuted
-              : isWinner
-                ? Netrunner.primary
-                : isActive
-                  ? Netrunner.secondary
-                  : Netrunner.text
-          }
-          glow={isWinner}>
-          {displayName}
-        </HudText>
-        {isWinner && !isPlaceholder && (
-          <HudText variant="caption" color={Netrunner.primary}>
-            WIN
+        <View style={styles.copyHeader}>
+          <HudText
+            variant="mono"
+            numberOfLines={1}
+            style={styles.nameText}
+            color={
+              isPlaceholder
+                ? Netrunner.textMuted
+                : isWinner
+                  ? Netrunner.primary
+                  : isActive
+                    ? Netrunner.secondary
+                    : Netrunner.text
+            }
+            glow={isWinner}>
+            {displayName}
           </HudText>
+          {isWinner && !isPlaceholder && (
+            <HudText variant="caption" color={Netrunner.primary}>
+              WIN
+            </HudText>
+          )}
+        </View>
+        {controllerName && !isPlaceholder && (
+          <RNPressable
+            accessibilityRole="button"
+            accessibilityLabel={`Controller ${controllerName}, tap to reassign`}
+            onPress={onControllerPress}
+            disabled={!onControllerPress}
+            hitSlop={4}>
+            <HudText variant="caption" color={Netrunner.secondary} numberOfLines={1}>
+              → {controllerName}
+            </HudText>
+          </RNPressable>
         )}
       </View>
     </View>
@@ -154,10 +173,18 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  copyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    minWidth: 0,
+  },
+  nameText: {
+    flex: 1,
     minWidth: 0,
   },
 });

@@ -5,7 +5,7 @@ import { HudText } from '@/components/bracket/HudText';
 import { MatchNode } from '@/components/bracket/MatchNode';
 import { BracketLayout, Netrunner } from '@/constants/netrunner-theme';
 import { getMatchTop } from '@/lib/bracket-engine';
-import type { BracketRound } from '@/types/bracket';
+import type { BracketRound, TournamentPlayer } from '@/types/bracket';
 
 type BracketRoundColumnProps = {
   round: BracketRound;
@@ -15,7 +15,10 @@ type BracketRoundColumnProps = {
   firstRoundMatchCount: number;
   verticalOffset: number;
   activeMatchId: string | null;
+  players: TournamentPlayer[];
+  controllerAssignments: Record<string, string>;
   onSelectWinner: (matchId: string, participantId: string) => void;
+  onReassignController?: (participantId: string) => void;
   isFinal: boolean;
 };
 
@@ -27,7 +30,10 @@ export function BracketRoundColumn({
   firstRoundMatchCount,
   verticalOffset,
   activeMatchId,
+  players,
+  controllerAssignments,
   onSelectWinner,
+  onReassignController,
   isFinal,
 }: BracketRoundColumnProps) {
   const pairIndexes = round.matches
@@ -64,7 +70,10 @@ export function BracketRoundColumn({
               <MatchNode
                 match={match}
                 isActive={isActive}
+                players={players}
+                controllerAssignments={controllerAssignments}
                 onSelectWinner={(participantId) => onSelectWinner(match.id, participantId)}
+                onReassignController={onReassignController}
               />
             </View>
           );

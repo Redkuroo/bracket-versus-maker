@@ -3,9 +3,10 @@ import type {
   BracketRound,
   BracketSlot,
   Participant,
+  TournamentPlayer,
   TournamentState,
 } from '@/types/bracket';
-import { MIN_PARTICIPANTS, BracketSlotLabels, type BracketSlotKind } from '@/types/bracket';
+import { BracketSlotLabels, MIN_PARTICIPANTS, type BracketSlotKind } from '@/types/bracket';
 import type { ParticipantInput } from '@/types/roster';
 
 type MatchKey = `${number}:${number}`;
@@ -170,6 +171,8 @@ export function cloneTournamentState(state: TournamentState): TournamentState {
   return {
     ...state,
     participants: state.participants.map((participant) => ({ ...participant })),
+    players: (state.players ?? []).map((player) => ({ ...player })),
+    controllerAssignments: { ...(state.controllerAssignments ?? {}) },
     rounds: cloneRounds(state.rounds),
   };
 }
@@ -272,12 +275,11 @@ function applyActiveMatch(rounds: BracketRound[], activeMatchId: string | null):
   return nextActive;
 }
 
-function finalizeState(rounds: BracketRound[]): TournamentState {
+function finalizeState(rounds: BracketRound[]): Omit<TournamentState, 'participants' | 'players' | 'controllerAssignments'> {
   refreshAllMatchStatuses(rounds);
   const activeMatchId = applyActiveMatch(rounds, findActiveMatchId(rounds));
   return {
     rounds,
-    participants: [],
     activeMatchId,
     championId: findChampionId(rounds),
   };
@@ -351,7 +353,12 @@ export function createTournament(participantInputs: ParticipantInput[]): Tournam
   }
 
   const state = finalizeState(rounds);
-  return { ...state, participants };
+  return {
+    ...state,
+    participants,
+    players: [],
+    controllerAssignments: {},
+  };
 }
 
 export function selectMatchWinner(
@@ -385,7 +392,86 @@ export function selectMatchWinner(
   placeWinner(rounds, targetMatch, winnerSlot);
 
   const nextState = finalizeState(rounds);
-  return { ...nextState, participants: state.participants };
+  return {
+    ...nextState,
+    participants: state.participants,
+    players: state.players,
+    controllerAssignments: state.controllerAssignments,
+  };
+}
+
+export function getRound1ParticipantIds(rounds: BracketRound[]): string[] {
+  const firstRound = rounds[0];
+  if (!firstRound) return [];
+
+  const ids: string[] = [];
+  for (const match of firstRound.matches) {
+    if (match.slotA.participantId && !match.slotA.isBye) {
+      ids.push(match.slotA.participantId);
+    }
+    if (match.slotB.participantId && !match.slotB.isBye) {
+      ids.push(match.slotB.participantId);
+    }
+  }
+  return ids;
+}
+
+export function createTournamentPlayers(names: string[]): TournamentPlayer[] {
+  return names
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+    .map((name, index) => ({ id: `ctrl-${index}`, name }));
+}
+
+/** Round-robin: each player gets floor(n/p) or ceil(n/p) characters with at most one extra each. */
+export function distributeControllersRoundRobin(
+  participantIds: string[],
+  players: TournamentPlayer[],
+): Record<string, string> {
+  if (players.length === 0) return {};
+
+  const assignments: Record<string, string> = {};
+  participantIds.forEach((participantId, index) => {
+    assignments[participantId] = players[index % players.length].id;
+  });
+  return assignments;
+}
+
+export function assignControllers(state: TournamentState, playerNames: string[]): TournamentState {
+  const players = createTournamentPlayers(playerNames);
+  if (players.length === 0) return state;
+
+  const participantIds = getRound1ParticipantIds(state.rounds);
+  const controllerAssignments = distributeControllersRoundRobin(participantIds, players);
+
+  return {
+    ...cloneTournamentState(state),
+    players,
+    controllerAssignments,
+  };
+}
+
+export function reassignParticipantController(
+  state: TournamentState,
+  participantId: string,
+  playerId: string,
+): TournamentState {
+  if (!state.players.some((player) => player.id === playerId)) return state;
+
+  const next = cloneTournamentState(state);
+  next.controllerAssignments = { ...next.controllerAssignments, [participantId]: playerId };
+  return next;
+}
+
+export function getControllerName(
+  participantId: string | null | undefined,
+  players: TournamentPlayer[],
+  assignments: Record<string, string>,
+): string | null {
+  if (!participantId) return null;
+  const playerId = assignments[participantId];
+  if (!playerId) return null;
+  return players.find((player) => player.id === playerId)?.name ?? null;
 }
 
 export function getMatchTop(
@@ -446,7 +532,6 @@ export function getCanvasHeight(rounds: BracketRound[], unitHeight: number): num
   if (rounds.length === 0) return unitHeight;
   return rounds[0].matches.length * unitHeight * 2;
 }
-
 export type BracketVisualBounds = {
   top: number;
   height: number;
@@ -500,3 +585,4 @@ export function getBracketVisualBounds(
     treeHeight,
   };
 }
+
