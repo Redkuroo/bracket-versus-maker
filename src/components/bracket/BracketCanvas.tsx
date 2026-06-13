@@ -42,22 +42,18 @@ function clampTranslation(
   let x = translateX;
   let y = translateY;
 
-  if (scaledWidth <= viewportWidth) {
-    x = (viewportWidth - scaledWidth) / 2;
-  } else {
+  if (scaledWidth > viewportWidth) {
     x = Math.min(0, Math.max(viewportWidth - scaledWidth, x));
   }
 
-  if (scaledHeight <= viewportHeight) {
-    y = (viewportHeight - scaledHeight) / 2;
-  } else {
+  if (scaledHeight > viewportHeight) {
     y = Math.min(0, Math.max(viewportHeight - scaledHeight, y));
   }
 
   return { x, y };
 }
 
-function applyBounds(
+function centerIfSmaller(
   translateX: SharedValue<number>,
   translateY: SharedValue<number>,
   savedTranslateX: SharedValue<number>,
@@ -69,19 +65,22 @@ function applyBounds(
   contentHeight: SharedValue<number>,
 ) {
   'worklet';
-  const clamped = clampTranslation(
-    translateX.value,
-    translateY.value,
-    scale.value,
-    viewportWidth.value,
-    viewportHeight.value,
-    contentWidth.value,
-    contentHeight.value,
-  );
-  translateX.value = clamped.x;
-  translateY.value = clamped.y;
-  savedTranslateX.value = clamped.x;
-  savedTranslateY.value = clamped.y;
+  const scaledWidth = contentWidth.value * scale.value;
+  const scaledHeight = contentHeight.value * scale.value;
+
+  if (scaledWidth <= viewportWidth.value) {
+    translateX.value = (viewportWidth.value - scaledWidth) / 2;
+    savedTranslateX.value = translateX.value;
+  } else {
+    savedTranslateX.value = translateX.value;
+  }
+
+  if (scaledHeight <= viewportHeight.value) {
+    translateY.value = (viewportHeight.value - scaledHeight) / 2;
+    savedTranslateY.value = translateY.value;
+  } else {
+    savedTranslateY.value = translateY.value;
+  }
 }
 
 function getInitialScale(viewportWidth: number, viewportHeight: number) {
@@ -198,7 +197,7 @@ export function BracketCanvas({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      applyBounds(
+      centerIfSmaller(
         translateX,
         translateY,
         savedTranslateX,
@@ -221,28 +220,36 @@ export function BracketCanvas({
       translateY.value = savedTranslateY.value + event.translationY;
     })
     .onEnd(() => {
-      applyBounds(
-        translateX,
-        translateY,
-        savedTranslateX,
-        savedTranslateY,
-        scale,
-        viewportWidthSv,
-        viewportHeightSv,
-        contentWidthSv,
-        contentHeightSv,
+      const clamped = clampTranslation(
+        translateX.value,
+        translateY.value,
+        scale.value,
+        viewportWidthSv.value,
+        viewportHeightSv.value,
+        contentWidthSv.value,
+        contentHeightSv.value,
       );
+      translateX.value = clamped.x;
+      translateY.value = clamped.y;
+      savedTranslateX.value = clamped.x;
+      savedTranslateY.value = clamped.y;
     });
 
   const gesture = Gesture.Simultaneous(pinch, pan);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const s = scale.value;
+    const cw = contentWidthSv.value;
+    const ch = contentHeightSv.value;
+
+    return {
+      transform: [
+        { translateX: translateX.value - (cw * (1 - s)) / 2 },
+        { translateY: translateY.value - (ch * (1 - s)) / 2 },
+        { scale: s },
+      ],
+    };
+  });
 
   if (!hasRounds) {
     return (
