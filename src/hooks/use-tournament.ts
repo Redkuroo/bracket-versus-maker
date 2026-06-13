@@ -21,6 +21,7 @@ import {
   renameSavedTournament as renameSavedTournamentSlot,
   upsertSavedTournament,
   type SavedTournamentSlot,
+  type SavedTournamentSummary,
 } from '@/lib/tournament-persistence';
 import {
   MAX_PARTICIPANTS,
@@ -109,7 +110,7 @@ export function useTournament() {
   const [tournament, setTournament] = useState<TournamentState | null>(null);
   const [history, setHistory] = useState<TournamentState[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [savedTournaments, setSavedTournaments] = useState<SavedTournamentSlot[]>([]);
+  const [savedTournaments, setSavedTournaments] = useState<SavedTournamentSummary[]>([]);
   const [activeSaveId, setActiveSaveId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const skipPersistRef = useRef(true);
@@ -126,9 +127,14 @@ export function useTournament() {
   const isBracketPhase = phase === 'bracket' && tournament !== null;
 
   const refreshSavedTournaments = useCallback(async () => {
-    const slots = await loadAllSavedTournaments();
-    setSavedTournaments(slots);
-    return slots;
+    try {
+      const slots = await loadAllSavedTournaments();
+      setSavedTournaments(slots);
+      return slots;
+    } catch {
+      setSavedTournaments([]);
+      return [];
+    }
   }, []);
 
   useEffect(() => {

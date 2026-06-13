@@ -22,7 +22,7 @@ import { formatSaveTimestamp } from '@/lib/tournament-persistence';
 import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
-import type { SavedTournamentSlot } from '@/lib/tournament-persistence';
+import type { SavedTournamentSummary } from '@/lib/tournament-persistence';
 
 type SetupPanelProps = {
   participantCount: number;
@@ -34,7 +34,7 @@ type SetupPanelProps = {
   onShuffle: () => void;
   onContinue?: () => void;
   canContinueTournament?: boolean;
-  savedTournaments?: SavedTournamentSlot[];
+  savedTournaments?: SavedTournamentSummary[];
   activeSaveId?: string | null;
   onLoadSave?: (saveId: string) => void;
   onRenameSave?: (saveId: string, label: string) => void;

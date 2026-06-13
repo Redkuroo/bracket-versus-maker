@@ -5,9 +5,12 @@ import type { TournamentPhase, TournamentState } from '@/types/bracket';
 import type { ParticipantInput } from '@/types/roster';
 
 const LEGACY_STORAGE_KEY = '@bracket-versus/tournament-session';
-const SAVES_STORAGE_KEY = '@bracket-versus/tournament-saves';
+const MONOLITHIC_SAVES_KEY = '@bracket-versus/tournament-saves';
+const SAVE_INDEX_KEY = '@bracket-versus/tournament-save-index';
+const SAVE_SLOT_PREFIX = '@bracket-versus/tournament-save/';
 const SESSION_VERSION = 1;
-const REGISTRY_VERSION = 2;
+const INDEX_VERSION = 3;
+const MONOLITHIC_REGISTRY_VERSION = 2;
 
 export type PersistedTournamentSession = {
   version: typeof SESSION_VERSION;
@@ -18,21 +21,31 @@ export type PersistedTournamentSession = {
   history: TournamentState[];
 };
 
-export type SavedTournamentSlot = {
+export type SavedTournamentSummary = {
   id: string;
   label: string;
   summary: string;
   savedAt: number;
   phase: TournamentPhase;
+};
+
+export type SavedTournamentSlot = SavedTournamentSummary & {
   setupPlayers: ParticipantInput[];
   tournament: TournamentState | null;
   history: TournamentState[];
 };
 
-type TournamentSaveRegistry = {
-  version: typeof REGISTRY_VERSION;
+type SaveSlotIndex = {
+  version: typeof INDEX_VERSION;
+  slots: SavedTournamentSummary[];
+};
+
+type MonolithicSaveRegistry = {
+  version: typeof MONOLITHIC_REGISTRY_VERSION;
   slots: SavedTournamentSlot[];
 };
+
+const MAX_SAVE_BYTES = 1_900_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -88,7 +101,7 @@ function parseSession(raw: string): PersistedTournamentSession | null {
       return null;
     }
     if (parsed.tournament !== null && !isTournamentState(parsed.tournament)) return null;
-    if (!Array.isArray(parsed.history) || !parsed.history.every(isTournamentState)) return null;
+    if (!Array.isArray(parsed.history)) return null;
 
     return {
       version: SESSION_VERSION,
@@ -96,7 +109,7 @@ function parseSession(raw: string): PersistedTournamentSession | null {
       phase: parsed.phase,
       setupPlayers: parsed.setupPlayers,
       tournament: parsed.tournament ? normalizeTournamentState(parsed.tournament) : null,
-      history: parsed.history.map(normalizeTournamentState),
+      history: parsed.history.filter(isTournamentState).map(normalizeTournamentState),
     };
   } catch {
     return null;
@@ -112,7 +125,7 @@ function parseSlot(value: unknown): SavedTournamentSlot | null {
   if (value.phase !== 'setup' && value.phase !== 'bracket') return null;
   if (!Array.isArray(value.setupPlayers) || !value.setupPlayers.every(isParticipantInput)) return null;
   if (value.tournament !== null && !isTournamentState(value.tournament)) return null;
-  if (!Array.isArray(value.history) || !value.history.every(isTournamentState)) return null;
+  if (!Array.isArray(value.history)) return null;
 
   return {
     id: value.id,
@@ -122,19 +135,44 @@ function parseSlot(value: unknown): SavedTournamentSlot | null {
     phase: value.phase,
     setupPlayers: value.setupPlayers,
     tournament: value.tournament ? normalizeTournamentState(value.tournament) : null,
-    history: value.history.map(normalizeTournamentState),
+    history: value.history.filter(isTournamentState).map(normalizeTournamentState),
   };
 }
 
-function parseRegistry(raw: string): TournamentSaveRegistry | null {
+function parseMonolithicRegistry(raw: string): MonolithicSaveRegistry | null {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) return null;
-    if (parsed.version !== REGISTRY_VERSION) return null;
+    if (parsed.version !== MONOLITHIC_REGISTRY_VERSION) return null;
     if (!Array.isArray(parsed.slots)) return null;
 
     const slots = parsed.slots.map(parseSlot).filter((slot): slot is SavedTournamentSlot => slot !== null);
-    return { version: REGISTRY_VERSION, slots };
+    return { version: MONOLITHIC_REGISTRY_VERSION, slots };
+  } catch {
+    return null;
+  }
+}
+
+function parseIndex(raw: string): SaveSlotIndex | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return null;
+    if (parsed.version !== INDEX_VERSION) return null;
+    if (!Array.isArray(parsed.slots)) return null;
+
+    const slots = parsed.slots
+      .map((entry) => {
+        if (!isRecord(entry)) return null;
+        if (typeof entry.id !== 'string') return null;
+        if (typeof entry.label !== 'string') return null;
+        if (typeof entry.summary !== 'string') return null;
+        if (typeof entry.savedAt !== 'number') return null;
+        if (entry.phase !== 'setup' && entry.phase !== 'bracket') return null;
+        return entry as SavedTournamentSummary;
+      })
+      .filter((entry): entry is SavedTournamentSummary => entry !== null);
+
+    return { version: INDEX_VERSION, slots };
   } catch {
     return null;
   }
@@ -144,22 +182,8 @@ function createSlotId(): string {
   return `save-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function sessionToSlot(
-  slotId: string,
-  session: PersistedTournamentSession,
-  label?: string,
-): SavedTournamentSlot {
-  const summary = describeSavedSession(session);
-  return {
-    id: slotId,
-    label: label ?? buildSlotLabel(session),
-    summary,
-    savedAt: session.savedAt,
-    phase: session.phase,
-    setupPlayers: session.setupPlayers,
-    tournament: session.tournament,
-    history: session.history,
-  };
+function slotStorageKey(id: string): string {
+  return `${SAVE_SLOT_PREFIX}${id}`;
 }
 
 function buildSlotLabel(session: PersistedTournamentSession): string {
@@ -176,6 +200,34 @@ function buildSlotLabel(session: PersistedTournamentSession): string {
   return `${session.setupPlayers.length} players`;
 }
 
+function sessionToSlot(
+  slotId: string,
+  session: PersistedTournamentSession,
+  label?: string,
+): SavedTournamentSlot {
+  const summary = describeSavedSession(session);
+  return {
+    id: slotId,
+    label: label ?? buildSlotLabel(session),
+    summary,
+    savedAt: session.savedAt,
+    phase: session.phase,
+    setupPlayers: session.setupPlayers,
+    tournament: session.tournament,
+    history: [],
+  };
+}
+
+function toSummary(slot: SavedTournamentSlot): SavedTournamentSummary {
+  return {
+    id: slot.id,
+    label: slot.label,
+    summary: slot.summary,
+    savedAt: slot.savedAt,
+    phase: slot.phase,
+  };
+}
+
 /** Undo history is session-only — storing it blows past AsyncStorage size limits. */
 export function trimSessionForPersistence(
   session: Omit<PersistedTournamentSession, 'version' | 'savedAt'>,
@@ -188,88 +240,148 @@ export function trimSessionForPersistence(
   };
 }
 
-const MAX_SAVE_BYTES = 1_900_000;
+async function safeGetItem(key: string): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch {
+    await AsyncStorage.removeItem(key).catch(() => undefined);
+    return null;
+  }
+}
 
-async function writeRegistry(slots: SavedTournamentSlot[]): Promise<void> {
-  const payload: TournamentSaveRegistry = {
-    version: REGISTRY_VERSION,
-    slots: slots.sort((a, b) => b.savedAt - a.savedAt),
-  };
+async function safeRemoveItem(key: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
 
+function serializeForStorage(value: unknown, tooLargeMessage: string): string {
   let serialized = '';
   try {
-    serialized = JSON.stringify(payload);
+    serialized = JSON.stringify(value);
   } catch {
     throw new Error('Could not serialize tournament data.');
   }
 
   if (serialized.length > MAX_SAVE_BYTES) {
-    throw new Error(
-      'Save file is too large. Delete an older saved tournament or use a smaller roster.',
-    );
+    throw new Error(tooLargeMessage);
   }
 
+  return serialized;
+}
+
+async function writeIndex(slots: SavedTournamentSummary[]): Promise<void> {
+  const payload: SaveSlotIndex = {
+    version: INDEX_VERSION,
+    slots: [...slots].sort((a, b) => b.savedAt - a.savedAt),
+  };
+  const serialized = serializeForStorage(payload, 'Save index is too large. Delete an older saved tournament.');
   try {
-    await AsyncStorage.setItem(SAVES_STORAGE_KEY, serialized);
+    await AsyncStorage.setItem(SAVE_INDEX_KEY, serialized);
   } catch {
-    throw new Error('Device storage could not write the save file.');
+    throw new Error('Device storage could not write the save index.');
   }
 }
 
-async function readRegistry(persistIfEmpty = false): Promise<TournamentSaveRegistry> {
-  const raw = await AsyncStorage.getItem(SAVES_STORAGE_KEY);
+async function writeSlot(slot: SavedTournamentSlot): Promise<void> {
+  const trimmed: SavedTournamentSlot = { ...slot, history: [] };
+  const serialized = serializeForStorage(
+    trimmed,
+    'This tournament is too large to save on this device. Try a smaller roster.',
+  );
+
+  try {
+    await AsyncStorage.setItem(slotStorageKey(slot.id), serialized);
+  } catch {
+    throw new Error('Device storage could not write this tournament save.');
+  }
+}
+
+async function readIndex(): Promise<SaveSlotIndex> {
+  const raw = await safeGetItem(SAVE_INDEX_KEY);
   if (raw) {
-    const parsed = parseRegistry(raw);
-    if (parsed) {
-      if (parsed.slots.length > 0) return parsed;
-
-      const migrated = await migrateLegacySession();
-      if (migrated) {
-        const registry: TournamentSaveRegistry = { version: REGISTRY_VERSION, slots: [migrated] };
-        if (persistIfEmpty) await writeRegistry(registry.slots);
-        return registry;
-      }
-
-      return parsed;
-    }
+    const parsed = parseIndex(raw);
+    if (parsed) return parsed;
+    await safeRemoveItem(SAVE_INDEX_KEY);
   }
 
-  const migrated = await migrateLegacySession();
-  const registry: TournamentSaveRegistry = {
-    version: REGISTRY_VERSION,
-    slots: migrated ? [migrated] : [],
-  };
+  return { version: INDEX_VERSION, slots: [] };
+}
 
-  if (persistIfEmpty && (migrated || !raw)) {
-    await writeRegistry(registry.slots);
+async function readSlot(id: string): Promise<SavedTournamentSlot | null> {
+  const raw = await safeGetItem(slotStorageKey(id));
+  if (!raw) return null;
+
+  try {
+    return parseSlot(JSON.parse(raw));
+  } catch {
+    await safeRemoveItem(slotStorageKey(id));
+    return null;
   }
-
-  return registry;
 }
 
 async function migrateLegacySession(): Promise<SavedTournamentSlot | null> {
-  const raw = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+  const raw = await safeGetItem(LEGACY_STORAGE_KEY);
   if (!raw) return null;
 
   const session = parseSession(raw);
-  if (!session) {
-    await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
-    return null;
-  }
+  await safeRemoveItem(LEGACY_STORAGE_KEY);
+  if (!session) return null;
 
-  const slot = sessionToSlot(createSlotId(), session);
-  await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
-  return slot;
+  return sessionToSlot(createSlotId(), {
+    ...session,
+    ...trimSessionForPersistence(session),
+  });
 }
 
-export async function loadAllSavedTournaments(): Promise<SavedTournamentSlot[]> {
-  const registry = await readRegistry(true);
-  return registry.slots.sort((a, b) => b.savedAt - a.savedAt);
+async function migrateMonolithicRegistry(): Promise<SavedTournamentSlot[]> {
+  const raw = await safeGetItem(MONOLITHIC_SAVES_KEY);
+  await safeRemoveItem(MONOLITHIC_SAVES_KEY);
+  if (!raw) return [];
+
+  const registry = parseMonolithicRegistry(raw);
+  if (!registry) return [];
+
+  return registry.slots.map((slot) => ({ ...slot, history: [] }));
+}
+
+async function ensureMigratedIndex(): Promise<SaveSlotIndex> {
+  let index = await readIndex();
+  if (index.slots.length > 0) return index;
+
+  const monolithicSlots = await migrateMonolithicRegistry();
+  if (monolithicSlots.length > 0) {
+    for (const slot of monolithicSlots) {
+      await writeSlot(slot);
+    }
+    index = {
+      version: INDEX_VERSION,
+      slots: monolithicSlots.map(toSummary).sort((a, b) => b.savedAt - a.savedAt),
+    };
+    await writeIndex(index.slots);
+    return index;
+  }
+
+  const legacySlot = await migrateLegacySession();
+  if (legacySlot) {
+    await writeSlot(legacySlot);
+    index = { version: INDEX_VERSION, slots: [toSummary(legacySlot)] };
+    await writeIndex(index.slots);
+  }
+
+  return index;
+}
+
+export async function loadAllSavedTournaments(): Promise<SavedTournamentSummary[]> {
+  const index = await ensureMigratedIndex();
+  return index.slots;
 }
 
 export async function loadSavedTournamentById(id: string): Promise<SavedTournamentSlot | null> {
-  const registry = await readRegistry(false);
-  return registry.slots.find((slot) => slot.id === id) ?? null;
+  await ensureMigratedIndex();
+  return readSlot(id);
 }
 
 export async function upsertSavedTournament(
@@ -285,43 +397,54 @@ export async function upsertSavedTournament(
     ...trimmed,
   };
 
-  const registry = await readRegistry(false);
-  const slots = registry.slots;
-  const existing = slotId ? slots.find((slot) => slot.id === slotId) : null;
+  const index = await ensureMigratedIndex();
+  const existing = slotId ? index.slots.find((slot) => slot.id === slotId) : null;
   const nextId = existing?.id ?? createSlotId();
   const nextSlot = sessionToSlot(nextId, persisted, label ?? existing?.label);
 
-  const nextSlots = existing
-    ? slots.map((slot) => (slot.id === nextId ? nextSlot : slot))
-    : [nextSlot, ...slots];
+  await writeSlot(nextSlot);
 
-  await writeRegistry(nextSlots);
+  const nextIndex = existing
+    ? index.slots.map((slot) => (slot.id === nextId ? toSummary(nextSlot) : slot))
+    : [toSummary(nextSlot), ...index.slots];
+
+  await writeIndex(nextIndex);
   return { slotId: nextId, savedAt, slot: nextSlot };
 }
 
 export async function deleteSavedTournament(id: string): Promise<void> {
-  const registry = await readRegistry(false);
-  await writeRegistry(registry.slots.filter((slot) => slot.id !== id));
+  const index = await ensureMigratedIndex();
+  await safeRemoveItem(slotStorageKey(id));
+  await writeIndex(index.slots.filter((slot) => slot.id !== id));
 }
 
 export async function renameSavedTournament(
   id: string,
   label: string,
-): Promise<SavedTournamentSlot | null> {
+): Promise<SavedTournamentSummary | null> {
   const trimmed = label.trim();
   if (!trimmed) return null;
 
-  const registry = await readRegistry(false);
-  const existing = registry.slots.find((slot) => slot.id === id);
-  if (!existing) return null;
+  const index = await ensureMigratedIndex();
+  const existingSummary = index.slots.find((slot) => slot.id === id);
+  if (!existingSummary) return null;
 
-  const nextSlot = { ...existing, label: trimmed };
-  await writeRegistry(registry.slots.map((slot) => (slot.id === id ? nextSlot : slot)));
-  return nextSlot;
+  const existingSlot = await readSlot(id);
+  if (existingSlot) {
+    await writeSlot({ ...existingSlot, label: trimmed });
+  }
+
+  const nextSummary = { ...existingSummary, label: trimmed };
+  await writeIndex(index.slots.map((slot) => (slot.id === id ? nextSummary : slot)));
+  return nextSummary;
 }
 
 export async function clearAllSavedTournaments(): Promise<void> {
-  await AsyncStorage.multiRemove([SAVES_STORAGE_KEY, LEGACY_STORAGE_KEY]);
+  const index = await readIndex();
+  await Promise.all(index.slots.map((slot) => safeRemoveItem(slotStorageKey(slot.id))));
+  await safeRemoveItem(SAVE_INDEX_KEY);
+  await safeRemoveItem(MONOLITHIC_SAVES_KEY);
+  await safeRemoveItem(LEGACY_STORAGE_KEY);
 }
 
 export function describeSavedSession(session: PersistedTournamentSession): string {
