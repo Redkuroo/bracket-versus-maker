@@ -69,6 +69,8 @@ function MatchSlot({
   return (
     <PlayerCard
       name={slot.name}
+      participantId={slot.participantId}
+      imageUri={slot.imageUri}
       variant={variant}
       isActive={isActive}
       isBye={variant === 'bye'}

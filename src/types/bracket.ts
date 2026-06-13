@@ -3,6 +3,7 @@ export type MatchStatus = 'pending' | 'ready' | 'active' | 'complete';
 export type BracketSlot = {
   participantId: string | null;
   name: string;
+  imageUri: string | null;
   isBye: boolean;
 };
 
@@ -30,6 +31,7 @@ export type BracketRound = {
 export type Participant = {
   id: string;
   name: string;
+  imageUri: string | null;
   isBye: boolean;
 };
 

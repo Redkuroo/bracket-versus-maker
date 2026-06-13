@@ -23,8 +23,8 @@ export const NetrunnerFonts = Platform.select({
 
 export const BracketLayout = {
   matchWidth: 168,
-  matchNodeHeight: 128,
-  slotHeight: 42,
+  matchNodeHeight: 150,
+  slotHeight: 48,
   slotGap: 6,
   roundGap: 56,
   unitHeight: 112,

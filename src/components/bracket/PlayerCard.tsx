@@ -8,12 +8,15 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { HudText } from '@/components/bracket/HudText';
+import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
 import { activeBorder, Netrunner, neonGlow } from '@/constants/netrunner-theme';
 import { BracketSlotLabels } from '@/types/bracket';
 import type { BracketSlotKind } from '@/types/bracket';
 
 type PlayerCardProps = {
   name: string;
+  participantId?: string | null;
+  imageUri?: string | null;
   variant?: BracketSlotKind;
   isWinner: boolean;
   isLoser: boolean;
@@ -27,6 +30,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function PlayerCard({
   name,
+  participantId,
+  imageUri,
   variant = 'player',
   isWinner,
   isLoser,
@@ -65,26 +70,35 @@ export function PlayerCard({
 
   const content = (
     <View style={styles.content}>
-      <HudText
-        variant="mono"
-        numberOfLines={1}
-        color={
-          isPlaceholder
-            ? Netrunner.textMuted
-            : isWinner
-              ? Netrunner.primary
-              : isActive
-                ? Netrunner.secondary
-                : Netrunner.text
-        }
-        glow={isWinner}>
-        {displayName}
-      </HudText>
-      {isWinner && !isPlaceholder && (
-        <HudText variant="caption" color={Netrunner.primary}>
-          WIN
+      <PlayerAvatar
+        name={name}
+        participantId={participantId}
+        imageUri={imageUri}
+        variant={variant}
+        size={34}
+      />
+      <View style={styles.copy}>
+        <HudText
+          variant="mono"
+          numberOfLines={1}
+          color={
+            isPlaceholder
+              ? Netrunner.textMuted
+              : isWinner
+                ? Netrunner.primary
+                : isActive
+                  ? Netrunner.secondary
+                  : Netrunner.text
+          }
+          glow={isWinner}>
+          {displayName}
         </HudText>
-      )}
+        {isWinner && !isPlaceholder && (
+          <HudText variant="caption" color={Netrunner.primary}>
+            WIN
+          </HudText>
+        )}
+      </View>
     </View>
   );
 
@@ -109,9 +123,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 0,
     backgroundColor: Netrunner.surface,
-    minHeight: 42,
+    minHeight: 48,
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
   placeholder: {
     borderColor: Netrunner.border,
@@ -135,7 +150,14 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  copy: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    minWidth: 0,
   },
 });

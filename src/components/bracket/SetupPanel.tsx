@@ -12,6 +12,7 @@ import {
 import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
+import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
@@ -147,21 +148,33 @@ export function SetupPanel({
               Leave blank for default names. Round 1 pairs players in order.
             </HudText>
             <View style={styles.nameGrid}>
-              {Array.from({ length: participantCount }, (_, index) => (
-                <HudTextInput
-                  key={`participant-${index}`}
-                  ref={(node) => {
-                    nameInputRefs.current[index] = node;
-                  }}
-                  label={`Slot ${String(index + 1).padStart(2, '0')}`}
-                  value={participantNames[index] ?? ''}
-                  onChangeText={(text) => onChangeName(index, text)}
-                  onFocus={() => focusInput(nameInputRefs.current[index])}
-                  placeholder={`Player ${index + 1}`}
-                  autoCapitalize="words"
-                  returnKeyType={index === participantCount - 1 ? 'done' : 'next'}
-                />
-              ))}
+              {Array.from({ length: participantCount }, (_, index) => {
+                const displayName = participantNames[index]?.trim() || `Player ${index + 1}`;
+
+                return (
+                  <View key={`participant-${index}`} style={styles.participantRow}>
+                    <PlayerAvatar
+                      name={displayName}
+                      participantId={`p-${index}`}
+                      size={48}
+                    />
+                    <View style={styles.participantInput}>
+                      <HudTextInput
+                        ref={(node) => {
+                          nameInputRefs.current[index] = node;
+                        }}
+                        label={`Slot ${String(index + 1).padStart(2, '0')}`}
+                        value={participantNames[index] ?? ''}
+                        onChangeText={(text) => onChangeName(index, text)}
+                        onFocus={() => focusInput(nameInputRefs.current[index])}
+                        placeholder={`Player ${index + 1}`}
+                        autoCapitalize="words"
+                        returnKeyType={index === participantCount - 1 ? 'done' : 'next'}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
 
@@ -202,5 +215,13 @@ const styles = StyleSheet.create({
   },
   nameGrid: {
     gap: 14,
+  },
+  participantRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  participantInput: {
+    flex: 1,
   },
 });

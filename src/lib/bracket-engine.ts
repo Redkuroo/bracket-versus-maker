@@ -15,17 +15,18 @@ type AdvanceTarget = {
 };
 
 function byeSlot(): BracketSlot {
-  return { participantId: null, name: BracketSlotLabels.bye, isBye: true };
+  return { participantId: null, name: BracketSlotLabels.bye, imageUri: null, isBye: true };
 }
 
 function emptySlot(): BracketSlot {
-  return { participantId: null, name: BracketSlotLabels.empty, isBye: false };
+  return { participantId: null, name: BracketSlotLabels.empty, imageUri: null, isBye: false };
 }
 
 function slotFromParticipant(participant: Participant): BracketSlot {
   return {
     participantId: participant.id,
     name: participant.name,
+    imageUri: participant.imageUri,
     isBye: participant.isBye,
   };
 }
@@ -201,21 +202,17 @@ function refreshMatchStatus(match: BracketMatch): void {
   match.status = 'pending';
 }
 
-function placeWinner(
-  rounds: BracketRound[],
-  match: BracketMatch,
-  winnerId: string,
-  winnerName: string,
-): void {
-  if (!match.advanceTo) return;
+function placeWinner(rounds: BracketRound[], match: BracketMatch, winnerSlot: BracketSlot): void {
+  if (!match.advanceTo || !winnerSlot.participantId) return;
 
   const { roundIndex, matchIndex, slot } = match.advanceTo;
   const targetMatch = rounds[roundIndex]?.matches[matchIndex];
   if (!targetMatch) return;
 
   targetMatch[slot] = {
-    participantId: winnerId,
-    name: winnerName,
+    participantId: winnerSlot.participantId,
+    name: winnerSlot.name,
+    imageUri: winnerSlot.imageUri,
     isBye: false,
   };
 }
@@ -283,6 +280,7 @@ export function createParticipants(names: string[]): Participant[] {
   return trimmed.map((name, index) => ({
     id: `p-${index}`,
     name,
+    imageUri: null,
     isBye: false,
   }));
 }
@@ -377,7 +375,7 @@ export function selectMatchWinner(
 
   targetMatch.winnerId = winnerParticipantId;
   targetMatch.status = 'complete';
-  placeWinner(rounds, targetMatch, winnerParticipantId, winnerSlot.name);
+  placeWinner(rounds, targetMatch, winnerSlot);
 
   const nextState = finalizeState(rounds);
   return { ...nextState, participants: state.participants };
