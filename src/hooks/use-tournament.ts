@@ -6,8 +6,10 @@ import {
   assignControllers,
   cloneTournamentState,
   createTournament,
+  getRoundShuffleTarget,
   reassignParticipantController,
   selectMatchWinner,
+  shuffleControllersForRound,
 } from '@/lib/bracket-engine';
 import {
   clearTournamentSession,
@@ -293,6 +295,31 @@ export function useTournament() {
     });
   }, []);
 
+  const reshuffleRoundControllers = useCallback(() => {
+    setTournament((current) => {
+      if (!current) return current;
+
+      const target = getRoundShuffleTarget(current);
+      if (!target) return current;
+
+      const result = shuffleControllersForRound(current, target.roundIndex);
+      if (!result.success) {
+        Alert.alert(
+          'Cannot shuffle players',
+          `Could not assign different human players for ${target.roundLabel}. Try adding more players or reshuffle again.`,
+        );
+        return current;
+      }
+
+      return normalizeTournamentState(result.state);
+    });
+  }, []);
+
+  const roundShuffleTarget = useMemo(
+    () => (tournament ? getRoundShuffleTarget(tournament) : null),
+    [tournament],
+  );
+
   const canUndo = history.length > 0;
 
   const champion = useMemo(() => {
@@ -327,5 +354,7 @@ export function useTournament() {
     undoLastPick,
     confirmPlayers,
     reassignController,
+    reshuffleRoundControllers,
+    roundShuffleTarget,
   };
 }

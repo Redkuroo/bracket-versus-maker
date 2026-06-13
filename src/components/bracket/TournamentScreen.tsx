@@ -45,6 +45,8 @@ export function TournamentScreen() {
     undoLastPick,
     confirmPlayers,
     reassignController,
+    reshuffleRoundControllers,
+    roundShuffleTarget,
   } = useTournament();
 
   const tournamentPlayers = tournament?.players ?? [];
@@ -173,6 +175,10 @@ export function TournamentScreen() {
               activeMatch={activeMatch}
               totalMatches={matchStats.total}
               completedMatches={matchStats.completed}
+              roundShuffleTarget={tournamentPlayers.length > 0 ? roundShuffleTarget : null}
+              onShuffleRoundControllers={
+                tournamentPlayers.length > 0 ? reshuffleRoundControllers : undefined
+              }
             />
           )}
         </View>

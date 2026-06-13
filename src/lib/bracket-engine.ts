@@ -490,11 +490,12 @@ type AssignmentMatch = {
   participants: AssignmentParticipant[];
 };
 
-function getRound1AssignmentMatches(rounds: BracketRound[]): AssignmentMatch[] {
-  const firstRound = rounds[0];
-  if (!firstRound) return [];
+function getRoundAssignmentMatches(rounds: BracketRound[], roundIndex: number): AssignmentMatch[] {
+  const round = rounds[roundIndex];
+  if (!round) return [];
 
-  return firstRound.matches
+  return round.matches
+    .filter((match) => !match.winnerId)
     .map((match) => {
       const participants: AssignmentParticipant[] = [];
       if (match.slotA.participantId && !match.slotA.isBye) {
@@ -594,11 +595,12 @@ function solveMatchAssignments(
 }
 
 /** Even split across players, randomly placed with no same-name or same-match duplicates. */
-export function distributeControllersRandomly(
+export function distributeControllersForRound(
   rounds: BracketRound[],
+  roundIndex: number,
   players: TournamentPlayer[],
 ): Record<string, string> | null {
-  const matches = getRound1AssignmentMatches(rounds);
+  const matches = getRoundAssignmentMatches(rounds, roundIndex);
   const participantIds = matches.flatMap((match) => match.participants.map((participant) => participant.id));
   if (players.length === 0 || participantIds.length === 0) return {};
 
@@ -621,12 +623,22 @@ export function distributeControllersRandomly(
   return solveMatchAssignments(shuffledMatches, 0, poolCounts(pool), playersById, {});
 }
 
+/** Even split across players for Round 1 only. */
+export function distributeControllersRandomly(
+  rounds: BracketRound[],
+  players: TournamentPlayer[],
+): Record<string, string> | null {
+  return distributeControllersForRound(rounds, 0, players);
+}
+
 export function findMatchOpponentParticipantId(
   rounds: BracketRound[],
   participantId: string,
 ): string | null {
   for (const round of rounds) {
     for (const match of round.matches) {
+      if (match.winnerId) continue;
+
       const inSlotA = match.slotA.participantId === participantId;
       const inSlotB = match.slotB.participantId === participantId;
       if (inSlotA && match.slotB.participantId && !match.slotB.isBye) {
@@ -704,6 +716,96 @@ export function reassignParticipantController(
   const next = cloneTournamentState(state);
   next.controllerAssignments = { ...next.controllerAssignments, [participantId]: playerId };
   return next;
+}
+
+export function isRoundComplete(round: BracketRound): boolean {
+  return round.matches.every((match) => Boolean(match.winnerId));
+}
+
+export function roundHasControllerConflicts(state: TournamentState, roundIndex: number): boolean {
+  const round = state.rounds[roundIndex];
+  if (!round) return false;
+
+  for (const match of round.matches) {
+    if (match.winnerId) continue;
+
+    const idA = match.slotA.participantId;
+    const idB = match.slotB.participantId;
+    if (!idA || !idB || match.slotA.isBye || match.slotB.isBye) continue;
+
+    const playerAId = state.controllerAssignments[idA];
+    const playerBId = state.controllerAssignments[idB];
+    if (playerAId && playerBId && playerAId === playerBId) return true;
+
+    const humanA = state.players.find((player) => player.id === playerAId);
+    const humanB = state.players.find((player) => player.id === playerBId);
+    const partA = state.participants.find((participant) => participant.id === idA);
+    const partB = state.participants.find((participant) => participant.id === idB);
+
+    if (humanA && partA && controllerConflictsWithParticipant(humanA.name, partA.name)) return true;
+    if (humanB && partB && controllerConflictsWithParticipant(humanB.name, partB.name)) return true;
+  }
+
+  return false;
+}
+
+export type RoundShuffleTarget = {
+  roundIndex: number;
+  roundLabel: string;
+  hasConflicts: boolean;
+};
+
+/** Next round that needs (re)assignment after the previous round finished. */
+export function getRoundShuffleTarget(state: TournamentState): RoundShuffleTarget | null {
+  if (!state.players.length || state.championId) return null;
+
+  for (let roundIndex = 1; roundIndex < state.rounds.length; roundIndex += 1) {
+    const previousRound = state.rounds[roundIndex - 1];
+    const round = state.rounds[roundIndex];
+    if (!previousRound || !round) continue;
+    if (!isRoundComplete(previousRound)) continue;
+    if (isRoundComplete(round)) continue;
+
+    const hasParticipants = round.matches.some(
+      (match) =>
+        (match.slotA.participantId && !match.slotA.isBye) ||
+        (match.slotB.participantId && !match.slotB.isBye),
+    );
+    if (!hasParticipants) continue;
+
+    return {
+      roundIndex,
+      roundLabel: round.label,
+      hasConflicts: roundHasControllerConflicts(state, roundIndex),
+    };
+  }
+
+  return null;
+}
+
+export function shuffleControllersForRound(
+  state: TournamentState,
+  roundIndex: number,
+): AssignControllersResult {
+  if (!state.players.length) {
+    return { state, success: false };
+  }
+
+  const controllerAssignments = distributeControllersForRound(state.rounds, roundIndex, state.players);
+  if (!controllerAssignments) {
+    return { state, success: false };
+  }
+
+  return {
+    state: {
+      ...cloneTournamentState(state),
+      controllerAssignments: {
+        ...state.controllerAssignments,
+        ...controllerAssignments,
+      },
+    },
+    success: true,
+  };
 }
 
 export function getControllerName(

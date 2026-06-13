@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { HudText } from '@/components/bracket/HudText';
+import { HudButton } from '@/components/bracket/HudButton';
 import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
 import type { BracketMatch } from '@/types/bracket';
 
@@ -9,12 +10,19 @@ type TournamentStatusBarProps = {
   activeMatch: BracketMatch | null;
   totalMatches: number;
   completedMatches: number;
+  roundShuffleTarget?: {
+    roundLabel: string;
+    hasConflicts: boolean;
+  } | null;
+  onShuffleRoundControllers?: () => void;
 };
 
 export function TournamentStatusBar({
   activeMatch,
   totalMatches,
   completedMatches,
+  roundShuffleTarget,
+  onShuffleRoundControllers,
 }: TournamentStatusBarProps) {
   const progress = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
 
@@ -37,6 +45,24 @@ export function TournamentStatusBar({
           ? `${activeMatch.slotA.name} vs ${activeMatch.slotB.name}`
           : 'Awaiting next pairing'}
       </HudText>
+
+      {roundShuffleTarget && onShuffleRoundControllers ? (
+        <View style={styles.shuffleRow}>
+          <View style={styles.shuffleCopy}>
+            <HudText variant="caption" color={Netrunner.textMuted}>
+              {roundShuffleTarget.hasConflicts
+                ? `${roundShuffleTarget.roundLabel} has the same human on both sides of a match.`
+                : `${roundShuffleTarget.roundLabel} is ready — reshuffle who controls each character.`}
+            </HudText>
+          </View>
+          <HudButton
+            label={`Shuffle ${roundShuffleTarget.roundLabel}`}
+            variant="secondary"
+            onPress={onShuffleRoundControllers}
+            style={styles.shuffleButton}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -100,6 +126,22 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Netrunner.secondary,
     ...neonGlow(Netrunner.secondary, 4),
+  },
+  shuffleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  shuffleCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  shuffleButton: {
+    minWidth: 120,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
   },
   championBanner: {
     flexDirection: 'row',
