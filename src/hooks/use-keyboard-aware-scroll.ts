@@ -3,14 +3,14 @@ import {
   Dimensions,
   Keyboard,
   Platform,
-  type ScrollView,
+  type FlatList,
   type View,
 } from 'react-native';
 
 const SCROLL_PADDING = 24;
 
 export function useKeyboardAwareScroll() {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<FlatList<number>>(null);
   const contentRef = useRef<View>(null);
   const scrollYRef = useRef(0);
   const keyboardHeightRef = useRef(0);
@@ -51,8 +51,8 @@ export function useKeyboardAwareScroll() {
         const fieldBottom = y + height;
 
         if (fieldBottom > visibleBottom) {
-          scrollRef.current?.scrollTo({
-            y: scrollYRef.current + (fieldBottom - visibleBottom),
+          scrollRef.current?.scrollToOffset({
+            offset: scrollYRef.current + (fieldBottom - visibleBottom),
             animated: true,
           });
         }

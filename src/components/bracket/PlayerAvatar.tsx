@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { HudText } from '@/components/bracket/HudText';
@@ -32,7 +33,7 @@ type PlayerAvatarProps = {
   size?: number;
 };
 
-export function PlayerAvatar({
+export const PlayerAvatar = memo(function PlayerAvatar({
   name,
   participantId,
   imageUri,
@@ -57,7 +58,15 @@ export function PlayerAvatar({
   if (imageSource) {
     return (
       <View style={[styles.frame, frameSize, { borderColor: accent }]}>
-        <Image source={imageSource} style={styles.image} contentFit="contain" contentPosition="top" />
+        <Image
+          source={imageSource}
+          style={styles.image}
+          contentFit="contain"
+          contentPosition="top"
+          recyclingKey={imageUri ?? undefined}
+          cachePolicy="memory-disk"
+          transition={null}
+        />
       </View>
     );
   }
@@ -74,7 +83,7 @@ export function PlayerAvatar({
       <View style={[styles.corner, styles.cornerBottomRight, { borderColor: accent }]} />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   frame: {
