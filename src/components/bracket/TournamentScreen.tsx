@@ -9,6 +9,7 @@ import { HudText } from '@/components/bracket/HudText';
 import { ReassignControllerModal } from '@/components/bracket/ReassignControllerModal';
 import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
+import { PlayerPocketBar } from '@/components/bracket/PlayerPocketBar';
 import { Netrunner } from '@/constants/netrunner-theme';
 import { getEligibleControllersForParticipant } from '@/lib/bracket-engine';
 import { useTournament } from '@/hooks/use-tournament';
@@ -177,14 +178,20 @@ export function TournamentScreen() {
           </View>
 
           {champion ? (
-            <ChampionBanner championName={champion.name} />
+            <>
+              <ChampionBanner championName={champion.name} />
+              {tournamentPlayers.length > 0 ? <PlayerPocketBar players={tournamentPlayers} /> : null}
+            </>
           ) : (
             <TournamentStatusBar
               activeMatch={activeMatch}
               totalMatches={matchStats.total}
               completedMatches={matchStats.completed}
+              showWinPayout={tournamentPlayers.length > 0}
             />
           )}
+
+          {!champion && tournamentPlayers.length > 0 ? <PlayerPocketBar players={tournamentPlayers} /> : null}
         </View>
 
         <View style={[styles.bracketArea, { height: bracketViewport.height }]}>

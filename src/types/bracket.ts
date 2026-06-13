@@ -39,6 +39,8 @@ export type Participant = {
 export type TournamentPlayer = {
   id: string;
   name: string;
+  /** Accumulated match-win earnings in pesos. */
+  pocketMoney: number;
 };
 
 export type TournamentState = {

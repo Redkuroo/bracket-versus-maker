@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { HudText } from '@/components/bracket/HudText';
+import { formatPeso, getRoundWinPayout } from '@/lib/bracket-engine';
 import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
 import type { BracketMatch } from '@/types/bracket';
 
@@ -9,14 +10,17 @@ type TournamentStatusBarProps = {
   activeMatch: BracketMatch | null;
   totalMatches: number;
   completedMatches: number;
+  showWinPayout?: boolean;
 };
 
 export function TournamentStatusBar({
   activeMatch,
   totalMatches,
   completedMatches,
+  showWinPayout = false,
 }: TournamentStatusBarProps) {
   const progress = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
+  const winPayout = activeMatch && showWinPayout ? getRoundWinPayout(activeMatch.roundIndex) : null;
 
   return (
     <View style={styles.container}>
@@ -27,9 +31,16 @@ export function TournamentStatusBar({
             ACTIVE MATCH
           </HudText>
         </View>
-        <HudText variant="mono" color={Netrunner.textMuted}>
-          {completedMatches}/{totalMatches}
-        </HudText>
+        <View style={styles.meta}>
+          {winPayout !== null ? (
+            <HudText variant="mono" color={Netrunner.primary}>
+              Win {formatPeso(winPayout)}
+            </HudText>
+          ) : null}
+          <HudText variant="mono" color={Netrunner.textMuted}>
+            {completedMatches}/{totalMatches}
+          </HudText>
+        </View>
       </View>
 
       <HudText variant="body" color={Netrunner.secondary} numberOfLines={2}>
@@ -84,6 +95,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   pulseDot: {
     width: 8,

@@ -26,7 +26,12 @@ function isParticipantInput(value: unknown): value is ParticipantInput {
 export function normalizeTournamentState(value: TournamentState): TournamentState {
   return {
     ...value,
-    players: Array.isArray(value.players) ? value.players : [],
+    players: Array.isArray(value.players)
+      ? value.players.map((player) => ({
+          ...player,
+          pocketMoney: typeof player.pocketMoney === 'number' ? player.pocketMoney : 0,
+        }))
+      : [],
     controllerAssignments:
       value.controllerAssignments && typeof value.controllerAssignments === 'object'
         ? value.controllerAssignments

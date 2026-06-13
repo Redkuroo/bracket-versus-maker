@@ -155,6 +155,32 @@ function getRoundLabel(roundIndex: number, totalRounds: number): string {
   return `ROUND ${roundIndex + 1}`;
 }
 
+/** Peso reward for winning a match in this bracket round (Round 1 = ₱1, Round 2 = ₱2, …). */
+export function getRoundWinPayout(roundIndex: number): number {
+  return Math.max(1, roundIndex + 1);
+}
+
+export function formatPeso(amount: number): string {
+  return `₱${amount}`;
+}
+
+function awardPocketMoney(
+  players: TournamentPlayer[],
+  controllerAssignments: Record<string, string>,
+  winnerParticipantId: string,
+  roundIndex: number,
+): TournamentPlayer[] {
+  const controllerId = controllerAssignments[winnerParticipantId];
+  if (!controllerId || players.length === 0) return players;
+
+  const payout = getRoundWinPayout(roundIndex);
+  return players.map((player) =>
+    player.id === controllerId
+      ? { ...player, pocketMoney: (player.pocketMoney ?? 0) + payout }
+      : player,
+  );
+}
+
 function cloneRounds(rounds: BracketRound[]): BracketRound[] {
   return rounds.map((round) => ({
     ...round,
@@ -392,10 +418,17 @@ export function selectMatchWinner(
   placeWinner(rounds, targetMatch, winnerSlot);
 
   const nextState = finalizeState(rounds);
+  const players = awardPocketMoney(
+    state.players,
+    state.controllerAssignments,
+    winnerParticipantId,
+    targetMatch.roundIndex,
+  );
+
   return {
     ...nextState,
     participants: state.participants,
-    players: state.players,
+    players,
     controllerAssignments: state.controllerAssignments,
   };
 }
@@ -420,7 +453,7 @@ export function createTournamentPlayers(names: string[]): TournamentPlayer[] {
   return names
     .map((name) => name.trim())
     .filter((name) => name.length > 0)
-    .map((name, index) => ({ id: `ctrl-${index}`, name }));
+    .map((name, index) => ({ id: `ctrl-${index}`, name, pocketMoney: 0 }));
 }
 
 function normalizeControllerName(name: string): string {
