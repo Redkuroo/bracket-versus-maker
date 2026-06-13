@@ -1,7 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { createTournament, selectMatchWinner } from '@/lib/bracket-engine';
-import type { TournamentPhase, TournamentState } from '@/types/bracket';
+import {
+  MAX_PARTICIPANTS,
+  MIN_PARTICIPANTS,
+  type TournamentPhase,
+  type TournamentState,
+} from '@/types/bracket';
+
+function clampParticipantCount(count: number): number {
+  return Math.min(MAX_PARTICIPANTS, Math.max(MIN_PARTICIPANTS, count));
+}
 
 export function useTournament() {
   const [phase, setPhase] = useState<TournamentPhase>('setup');
@@ -10,13 +19,14 @@ export function useTournament() {
   const [tournament, setTournament] = useState<TournamentState | null>(null);
 
   const syncNameFields = useCallback((count: number) => {
-    setParticipantCount(count);
+    const clamped = clampParticipantCount(count);
+    setParticipantCount(clamped);
     setParticipantNames((current) => {
-      if (current.length === count) return current;
-      if (current.length < count) {
-        return [...current, ...Array.from({ length: count - current.length }, () => '')];
+      if (current.length === clamped) return current;
+      if (current.length < clamped) {
+        return [...current, ...Array.from({ length: clamped - current.length }, () => '')];
       }
-      return current.slice(0, count);
+      return current.slice(0, clamped);
     });
   }, []);
 
