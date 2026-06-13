@@ -27,6 +27,10 @@ type SetupPanelProps = {
   onChangeName: (index: number, name: string) => void;
   onLoadPreset: () => void;
   onShuffle: () => void;
+  onSave: () => void;
+  onContinue?: () => void;
+  canContinueTournament?: boolean;
+  savedSessionSummary?: string | null;
   onStart: () => void;
 };
 
@@ -86,6 +90,10 @@ export function SetupPanel({
   onChangeName,
   onLoadPreset,
   onShuffle,
+  onSave,
+  onContinue,
+  canContinueTournament = false,
+  savedSessionSummary,
   onStart,
 }: SetupPanelProps) {
   const [countDraft, setCountDraft] = useState(String(participantCount));
@@ -231,6 +239,11 @@ export function SetupPanel({
         <HudText variant="label" color={Netrunner.primary}>
           Preset roster
         </HudText>
+        {savedSessionSummary ? (
+          <HudText variant="caption" color={Netrunner.textMuted}>
+            Saved progress: {savedSessionSummary}
+          </HudText>
+        ) : null}
         <HudButton
           label={`Load "${PRESET_ROSTER.label}"`}
           variant="ghost"
@@ -251,6 +264,10 @@ export function SetupPanel({
 
   const listFooter = (
     <View style={styles.actions}>
+      {canContinueTournament && onContinue ? (
+        <HudButton label="Continue Tournament" variant="secondary" onPress={onContinue} />
+      ) : null}
+      <HudButton label="Save Progress" variant="ghost" onPress={onSave} />
       <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
       <HudButton label="Shuffle Roster" variant="ghost" onPress={onShuffle} />
     </View>

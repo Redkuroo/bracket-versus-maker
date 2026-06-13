@@ -1,7 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PRESET_ROSTER } from '@/data/preset-roster';
 import { cloneTournamentState, createTournament, selectMatchWinner } from '@/lib/bracket-engine';
+import {
+  clearTournamentSession,
+  describeSavedSession,
+  loadTournamentSession,
+  saveTournamentSession,
+} from '@/lib/tournament-persistence';
 import {
   MAX_PARTICIPANTS,
   MIN_PARTICIPANTS,
@@ -45,6 +51,11 @@ export function useTournament() {
   const [setupPlayers, setSetupPlayers] = useState<ParticipantInput[]>(createEmptyPlayers(4));
   const [tournament, setTournament] = useState<TournamentState | null>(null);
   const [history, setHistory] = useState<TournamentState[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [hasSavedSession, setHasSavedSession] = useState(false);
+  const [savedSessionSummary, setSavedSessionSummary] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const skipPersistRef = useRef(true);
 
   const participantCount = setupPlayers.length;
   const participantNames = useMemo(() => setupPlayers.map((player) => player.name), [setupPlayers]);
@@ -52,6 +63,75 @@ export function useTournament() {
     () => setupPlayers.map((player) => player.imageUri ?? null),
     [setupPlayers],
   );
+
+  const canContinueTournament = Boolean(tournament);
+  const isBracketPhase = phase === 'bracket' && tournament !== null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadTournamentSession().then((session) => {
+      if (cancelled) return;
+
+      if (session) {
+        setSetupPlayers(session.setupPlayers);
+        setTournament(session.tournament);
+        setHistory(session.history);
+        setPhase(session.phase);
+        setHasSavedSession(true);
+        setSavedSessionSummary(describeSavedSession(session));
+        setLastSavedAt(session.savedAt);
+      }
+
+      skipPersistRef.current = false;
+      setIsHydrated(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persistCurrentSession = useCallback(async () => {
+    const savedAt = await saveTournamentSession({
+      phase,
+      setupPlayers,
+      tournament,
+      history,
+    });
+    setHasSavedSession(true);
+    setLastSavedAt(savedAt);
+    setSavedSessionSummary(
+      describeSavedSession({
+        version: 1,
+        savedAt,
+        phase,
+        setupPlayers,
+        tournament,
+        history,
+      }),
+    );
+    return savedAt;
+  }, [phase, setupPlayers, tournament, history]);
+
+  useEffect(() => {
+    if (!isHydrated || skipPersistRef.current) return;
+
+    const timeoutId = setTimeout(() => {
+      persistCurrentSession().catch(() => undefined);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [isHydrated, phase, setupPlayers, tournament, history, persistCurrentSession]);
+
+  const saveTournament = useCallback(async () => {
+    await persistCurrentSession();
+  }, [persistCurrentSession]);
+
+  const continueTournament = useCallback(() => {
+    if (!tournament) return;
+    setPhase('bracket');
+  }, [tournament]);
 
   const syncNameFields = useCallback((count: number) => {
     setSetupPlayers((current) => resizePlayers(current, count));
@@ -91,12 +171,18 @@ export function useTournament() {
   }, [setupPlayers]);
 
   const goHome = useCallback(() => {
-    setTournament(null);
-    setHistory([]);
     setPhase('setup');
   }, []);
 
-  const resetTournament = goHome;
+  const resetTournament = useCallback(async () => {
+    setTournament(null);
+    setHistory([]);
+    setPhase('setup');
+    await clearTournamentSession();
+    setHasSavedSession(false);
+    setSavedSessionSummary(null);
+    setLastSavedAt(null);
+  }, []);
 
   const pickWinner = useCallback((matchId: string, participantId: string) => {
     setTournament((current) => {
@@ -135,10 +221,18 @@ export function useTournament() {
     tournament,
     champion,
     canUndo,
+    isHydrated,
+    hasSavedSession,
+    savedSessionSummary,
+    lastSavedAt,
+    canContinueTournament,
+    isBracketPhase,
     syncNameFields,
     updateParticipantName,
     loadPresetRoster,
     shuffleRoster,
+    saveTournament,
+    continueTournament,
     startTournament,
     goHome,
     resetTournament,

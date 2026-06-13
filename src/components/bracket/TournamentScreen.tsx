@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BracketCanvas } from '@/components/bracket/BracketCanvas';
@@ -19,10 +19,15 @@ export function TournamentScreen() {
     tournament,
     champion,
     canUndo,
+    isHydrated,
+    savedSessionSummary,
+    canContinueTournament,
     syncNameFields,
     updateParticipantName,
     loadPresetRoster,
     shuffleRoster,
+    saveTournament,
+    continueTournament,
     startTournament,
     goHome,
     pickWinner,
@@ -48,6 +53,19 @@ export function TournamentScreen() {
     return { total, completed };
   }, [tournament]);
 
+  if (!isHydrated) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+        <View style={styles.loadingShell}>
+          <ActivityIndicator color={Netrunner.primary} />
+          <HudText variant="caption" color={Netrunner.textMuted}>
+            Loading saved tournament...
+          </HudText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (phase === 'setup' || !tournament) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
@@ -60,6 +78,10 @@ export function TournamentScreen() {
             onChangeName={updateParticipantName}
             onLoadPreset={loadPresetRoster}
             onShuffle={shuffleRoster}
+            onSave={saveTournament}
+            onContinue={continueTournament}
+            canContinueTournament={canContinueTournament}
+            savedSessionSummary={savedSessionSummary}
             onStart={startTournament}
           />
         </View>
@@ -78,6 +100,12 @@ export function TournamentScreen() {
             <HudText variant="caption">Pinch to zoom · drag to pan · tap a card to advance</HudText>
           </View>
           <View style={styles.topBarActions}>
+            <HudButton
+              label="Save"
+              variant="ghost"
+              onPress={saveTournament}
+              style={styles.actionButton}
+            />
             <HudButton
               label="Undo"
               variant="ghost"
@@ -109,6 +137,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Netrunner.background,
+  },
+  loadingShell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   setupShell: {
     flex: 1,
