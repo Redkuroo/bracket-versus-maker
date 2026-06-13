@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { PlayerCard } from '@/components/bracket/PlayerCard';
 import { HudText } from '@/components/bracket/HudText';
 import { BracketLayout, Netrunner, neonGlow } from '@/constants/netrunner-theme';
-import type { BracketMatch } from '@/types/bracket';
+import type { BracketMatch, BracketSlot } from '@/types/bracket';
 
 type MatchNodeProps = {
   match: BracketMatch;
@@ -21,10 +21,9 @@ export function MatchNode({ match, isActive, onSelectWinner }: MatchNodeProps) {
           ACTIVE
         </HudText>
       )}
-      <PlayerCard
-        name={match.slotA.name}
+      <MatchSlot
+        slot={match.slotA}
         isActive={isActive && canInteract}
-        isBye={match.slotA.isBye}
         isLoser={Boolean(match.winnerId && match.winnerId !== match.slotA.participantId)}
         isWinner={match.winnerId === match.slotA.participantId}
         disabled={!canInteract || !match.slotA.participantId}
@@ -37,16 +36,47 @@ export function MatchNode({ match, isActive, onSelectWinner }: MatchNodeProps) {
         </HudText>
         <View style={styles.vsLine} />
       </View>
-      <PlayerCard
-        name={match.slotB.name}
+      <MatchSlot
+        slot={match.slotB}
         isActive={isActive && canInteract}
-        isBye={match.slotB.isBye}
         isLoser={Boolean(match.winnerId && match.winnerId !== match.slotB.participantId)}
         isWinner={match.winnerId === match.slotB.participantId}
         disabled={!canInteract || !match.slotB.participantId}
         onPress={() => match.slotB.participantId && onSelectWinner(match.slotB.participantId)}
       />
     </View>
+  );
+}
+
+function MatchSlot({
+  slot,
+  isActive,
+  isWinner,
+  isLoser,
+  disabled,
+  onPress,
+}: {
+  slot: BracketSlot;
+  isActive: boolean;
+  isWinner: boolean;
+  isLoser: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  if (slot.isBye && !slot.participantId) {
+    return <View style={styles.openSlot} />;
+  }
+
+  return (
+    <PlayerCard
+      name={slot.name}
+      isActive={isActive}
+      isBye={false}
+      isLoser={isLoser}
+      isWinner={isWinner}
+      disabled={disabled}
+      onPress={onPress}
+    />
   );
 }
 
@@ -76,5 +106,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 1,
     backgroundColor: Netrunner.border,
+  },
+  openSlot: {
+    minHeight: BracketLayout.slotHeight,
+    borderWidth: 1,
+    borderColor: Netrunner.border,
+    borderStyle: 'dashed',
+    borderRadius: 0,
+    backgroundColor: '#040E16',
+    opacity: 0.55,
   },
 });

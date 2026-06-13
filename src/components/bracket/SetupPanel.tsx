@@ -13,6 +13,7 @@ import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
 import { Netrunner } from '@/constants/netrunner-theme';
+import { getBracketInfo } from '@/lib/bracket-engine';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
 
@@ -77,6 +78,8 @@ export function SetupPanel({
     setCountDraft(String(count));
     onChangeCount(count);
   };
+
+  const bracketInfo = getBracketInfo(participantCount);
 
   const focusInput = (ref: ViewType | null) => {
     scrollInputIntoView(ref);
@@ -144,8 +147,11 @@ export function SetupPanel({
               Player / Team Names
             </HudText>
             <HudText variant="caption">
-              {participantCount} slot{participantCount === 1 ? '' : 's'} · Bracket size{' '}
-              {nextBracketSize(participantCount)}
+              {participantCount} player{participantCount === 1 ? '' : 's'} · {bracketInfo.bracketSize}-slot
+              bracket
+              {bracketInfo.byeCount > 0
+                ? ` · ${bracketInfo.byeCount} first-round byes for top seeds (hidden)`
+                : ''}
             </HudText>
             <View style={styles.nameGrid}>
               {Array.from({ length: participantCount }, (_, index) => (
@@ -171,12 +177,6 @@ export function SetupPanel({
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
-
-function nextBracketSize(count: number): number {
-  let size = 1;
-  while (size < count) size *= 2;
-  return size;
 }
 
 const styles = StyleSheet.create({

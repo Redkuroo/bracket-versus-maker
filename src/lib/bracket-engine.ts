@@ -5,11 +5,54 @@ import type {
   Participant,
   TournamentState,
 } from '@/types/bracket';
+import { MIN_PARTICIPANTS } from '@/types/bracket';
 
 function nextPowerOfTwo(value: number): number {
   let size = 1;
   while (size < value) size *= 2;
   return size;
+}
+
+function byeSlot(): BracketSlot {
+  return { participantId: null, name: '—', isBye: true };
+}
+
+/** Bracket slot order for seed 1..bracketSize (standard single-elimination layout). */
+export function generateSeedOrder(bracketSize: number): number[] {
+  if (bracketSize <= 2) return bracketSize === 2 ? [1, 2] : [1];
+
+  const half = bracketSize / 2;
+  const previous = generateSeedOrder(half);
+  const order: number[] = [];
+
+  for (const seed of previous) {
+    order.push(seed);
+    order.push(bracketSize + 1 - seed);
+  }
+
+  return order;
+}
+
+export function getBracketInfo(playerCount: number) {
+  const bracketSize = nextPowerOfTwo(Math.max(playerCount, MIN_PARTICIPANTS));
+  return {
+    bracketSize,
+    byeCount: bracketSize - playerCount,
+  };
+}
+
+function seedBracketSlots(participants: Participant[], bracketSize: number): BracketSlot[] {
+  const slots: BracketSlot[] = Array.from({ length: bracketSize }, () => byeSlot());
+  const seedOrder = generateSeedOrder(bracketSize);
+
+  for (let slotIndex = 0; slotIndex < bracketSize; slotIndex += 1) {
+    const seed = seedOrder[slotIndex];
+    if (seed <= participants.length) {
+      slots[slotIndex] = slotFromParticipant(participants[seed - 1]);
+    }
+  }
+
+  return slots;
 }
 
 function emptySlot(): BracketSlot {
@@ -73,7 +116,6 @@ function resolveByeMatch(rounds: BracketRound[], match: BracketMatch): boolean {
 
   if (!aBye && !bBye) return false;
   if (aBye && bBye) {
-    match.winnerId = slotA.participantId;
     match.status = 'complete';
     return true;
   }
@@ -171,32 +213,19 @@ function finalizeState(rounds: BracketRound[]): TournamentState {
 
 export function createParticipants(names: string[]): Participant[] {
   const trimmed = names.map((name, index) => name.trim() || `Player ${index + 1}`);
-  const bracketSize = nextPowerOfTwo(Math.max(trimmed.length, 2));
-  const participants: Participant[] = [];
 
-  for (let index = 0; index < bracketSize; index += 1) {
-    if (index < trimmed.length) {
-      participants.push({
-        id: `p-${index}`,
-        name: trimmed[index],
-        isBye: false,
-      });
-    } else {
-      participants.push({
-        id: `bye-${index}`,
-        name: 'BYE',
-        isBye: true,
-      });
-    }
-  }
-
-  return participants;
+  return trimmed.map((name, index) => ({
+    id: `p-${index}`,
+    name,
+    isBye: false,
+  }));
 }
 
 export function createTournament(participantNames: string[]): TournamentState {
   const participants = createParticipants(participantNames);
-  const bracketSize = participants.length;
+  const bracketSize = nextPowerOfTwo(Math.max(participants.length, MIN_PARTICIPANTS));
   const roundCount = Math.log2(bracketSize);
+  const seededSlots = seedBracketSlots(participants, bracketSize);
   const rounds: BracketRound[] = [];
 
   for (let roundIndex = 0; roundIndex < roundCount; roundIndex += 1) {
@@ -224,8 +253,8 @@ export function createTournament(participantNames: string[]): TournamentState {
 
   for (let matchIndex = 0; matchIndex < rounds[0].matches.length; matchIndex += 1) {
     const match = rounds[0].matches[matchIndex];
-    match.slotA = slotFromParticipant(participants[matchIndex * 2]);
-    match.slotB = slotFromParticipant(participants[matchIndex * 2 + 1]);
+    match.slotA = seededSlots[matchIndex * 2];
+    match.slotB = seededSlots[matchIndex * 2 + 1];
   }
 
   const state = finalizeState(rounds);
