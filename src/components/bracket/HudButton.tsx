@@ -1,17 +1,35 @@
-import { Pressable, StyleSheet, type PressableProps } from 'react-native';
+import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 
 import { HudText } from '@/components/bracket/HudText';
 import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
+import type { HudIconName } from '@/constants/hud-icons';
 
 type HudButtonProps = PressableProps & {
   label: string;
   variant?: 'primary' | 'secondary' | 'ghost';
+  icon?: HudIconName;
 };
 
-export function HudButton({ label, variant = 'primary', disabled, style, ...rest }: HudButtonProps) {
+function getLabelColor(variant: NonNullable<HudButtonProps['variant']>): string {
+  if (variant === 'ghost') return Netrunner.text;
+  return Netrunner.background;
+}
+
+export function HudButton({
+  label,
+  variant = 'primary',
+  icon,
+  disabled,
+  style,
+  ...rest
+}: HudButtonProps) {
+  const labelColor = getLabelColor(variant);
+
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       disabled={disabled}
       style={(state) => {
         const resolved = typeof style === 'function' ? style(state) : style;
@@ -26,18 +44,14 @@ export function HudButton({ label, variant = 'primary', disabled, style, ...rest
         ];
       }}
       {...rest}>
-      <HudText
-        variant="label"
-        color={
-          variant === 'ghost'
-            ? Netrunner.text
-            : variant === 'secondary'
-              ? Netrunner.background
-              : Netrunner.background
-        }
-        style={styles.label}>
-        {label}
-      </HudText>
+      <View style={styles.content}>
+        {icon ? (
+          <SymbolView name={icon} size={14} weight="medium" tintColor={labelColor} />
+        ) : null}
+        <HudText variant="label" color={labelColor} style={styles.label}>
+          {label}
+        </HudText>
+      </View>
     </Pressable>
   );
 }
@@ -71,6 +85,12 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.82,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   label: {
     letterSpacing: 1.5,

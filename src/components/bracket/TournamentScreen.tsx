@@ -12,6 +12,7 @@ import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
 import { PlayerPocketBar } from '@/components/bracket/PlayerPocketBar';
 import { Netrunner } from '@/constants/netrunner-theme';
+import { HudIcons } from '@/constants/hud-icons';
 import { getEligibleControllersForParticipant } from '@/lib/bracket-engine';
 import { useTournament } from '@/hooks/use-tournament';
 
@@ -153,6 +154,7 @@ export function TournamentScreen() {
               {tournamentPlayers.length > 0 && roundShuffleTarget ? (
                 <HudButton
                   label={`Shuffle ${roundShuffleTarget.roundLabel}`}
+                  icon={HudIcons.shuffle}
                   variant={roundShuffleTarget.hasConflicts ? 'secondary' : 'ghost'}
                   onPress={reshuffleRoundControllers}
                   style={styles.actionButton}
@@ -160,30 +162,40 @@ export function TournamentScreen() {
               ) : null}
               <HudButton
                 label="Payouts"
+                icon={HudIcons.payouts}
                 variant="ghost"
                 onPress={() => setShowRoundPayouts(true)}
                 style={styles.actionButton}
               />
               <HudButton
                 label={tournamentPlayers.length > 0 ? 'Edit Players' : 'Add Players'}
+                icon={tournamentPlayers.length > 0 ? HudIcons.editPlayers : HudIcons.addPlayers}
                 variant="ghost"
                 onPress={() => setShowAddPlayers(true)}
                 style={styles.actionButton}
               />
               <HudButton
                 label="Save"
+                icon={HudIcons.save}
                 variant="ghost"
                 onPress={saveTournament}
                 style={styles.actionButton}
               />
               <HudButton
                 label="Undo"
+                icon={HudIcons.undo}
                 variant="ghost"
                 onPress={undoLastPick}
                 disabled={!canUndo}
                 style={styles.actionButton}
               />
-              <HudButton label="Home" variant="ghost" onPress={goHome} style={styles.actionButton} />
+              <HudButton
+                label="Home"
+                icon={HudIcons.home}
+                variant="ghost"
+                onPress={goHome}
+                style={styles.actionButton}
+              />
             </View>
           </View>
 
