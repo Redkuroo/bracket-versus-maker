@@ -4,6 +4,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   View,
   type ListRenderItemInfo,
@@ -15,9 +16,11 @@ import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
 import { PlayerAvatar } from '@/components/bracket/PlayerAvatar';
 import { PRESET_ROSTER } from '@/data/preset-roster';
-import { Netrunner } from '@/constants/netrunner-theme';
+import { formatSaveTimestamp } from '@/lib/tournament-persistence';
+import { Netrunner, neonGlow } from '@/constants/netrunner-theme';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
+import type { SavedTournamentSlot } from '@/lib/tournament-persistence';
 
 type SetupPanelProps = {
   participantCount: number;
@@ -27,10 +30,11 @@ type SetupPanelProps = {
   onChangeName: (index: number, name: string) => void;
   onLoadPreset: () => void;
   onShuffle: () => void;
-  onSave: () => void;
   onContinue?: () => void;
   canContinueTournament?: boolean;
-  savedSessionSummary?: string | null;
+  savedTournaments?: SavedTournamentSlot[];
+  activeSaveId?: string | null;
+  onLoadSave?: (saveId: string) => void;
   onStart: () => void;
 };
 
@@ -90,10 +94,11 @@ export function SetupPanel({
   onChangeName,
   onLoadPreset,
   onShuffle,
-  onSave,
   onContinue,
   canContinueTournament = false,
-  savedSessionSummary,
+  savedTournaments = [],
+  activeSaveId = null,
+  onLoadSave,
   onStart,
 }: SetupPanelProps) {
   const [countDraft, setCountDraft] = useState(String(participantCount));
@@ -237,13 +242,55 @@ export function SetupPanel({
 
       <View style={styles.section}>
         <HudText variant="label" color={Netrunner.primary}>
+          Saved tournaments
+        </HudText>
+        <HudText variant="caption" color={Netrunner.textMuted}>
+          Select a save to load its roster and bracket progress.
+        </HudText>
+        {savedTournaments.length === 0 ? (
+          <HudText variant="caption" color={Netrunner.textMuted}>
+            No saved tournaments yet. Launch a bracket and use Save during play.
+          </HudText>
+        ) : (
+          <View style={styles.saveList}>
+            {savedTournaments.map((save) => {
+              const selected = activeSaveId === save.id;
+              return (
+                <Pressable
+                  key={save.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Load ${save.label}`}
+                  onPress={() => onLoadSave?.(save.id)}
+                  style={[styles.saveCard, selected && styles.saveCardSelected]}>
+                  <View style={styles.saveCopy}>
+                    <HudText variant="body" color={selected ? Netrunner.secondary : Netrunner.text}>
+                      {save.label}
+                    </HudText>
+                    <HudText variant="caption" color={Netrunner.textMuted}>
+                      {save.summary}
+                    </HudText>
+                    <HudText variant="caption" color={Netrunner.textMuted}>
+                      {formatSaveTimestamp(save.savedAt)}
+                      {save.phase === 'bracket' ? ' · In progress' : ' · Setup'}
+                    </HudText>
+                  </View>
+                  {selected ? (
+                    <HudText variant="label" color={Netrunner.primary}>
+                      LOADED
+                    </HudText>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <HudText variant="label" color={Netrunner.primary}>
           Preset roster
         </HudText>
-        {savedSessionSummary ? (
-          <HudText variant="caption" color={Netrunner.textMuted}>
-            Saved progress: {savedSessionSummary}
-          </HudText>
-        ) : null}
         <HudButton
           label={`Load "${PRESET_ROSTER.label}"`}
           variant="ghost"
@@ -267,7 +314,6 @@ export function SetupPanel({
       {canContinueTournament && onContinue ? (
         <HudButton label="Continue Tournament" variant="secondary" onPress={onContinue} />
       ) : null}
-      <HudButton label="Save Progress" variant="ghost" onPress={onSave} />
       <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
       <HudButton label="Shuffle Roster" variant="ghost" onPress={onShuffle} />
     </View>
@@ -321,6 +367,28 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 14,
+  },
+  saveList: {
+    gap: 10,
+  },
+  saveCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Netrunner.border,
+    backgroundColor: Netrunner.surface,
+    padding: 12,
+  },
+  saveCardSelected: {
+    borderColor: Netrunner.secondary,
+    ...neonGlow(Netrunner.secondary, 4),
+  },
+  saveCopy: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
   },
   countRow: {
     flexDirection: 'row',

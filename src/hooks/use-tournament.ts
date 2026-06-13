@@ -5,7 +5,6 @@ import { PRESET_ROSTER } from '@/data/preset-roster';
 import {
   assignControllers,
   cloneTournamentState,
-  createDefaultRoundPayouts,
   createTournament,
   getRoundShuffleTarget,
   reassignParticipantController,
@@ -14,11 +13,13 @@ import {
   updateRoundPayouts,
 } from '@/lib/bracket-engine';
 import {
-  clearTournamentSession,
+  clearAllSavedTournaments,
   describeSavedSession,
-  loadTournamentSession,
+  loadAllSavedTournaments,
+  loadSavedTournamentById,
   normalizeTournamentState,
-  saveTournamentSession,
+  upsertSavedTournament,
+  type SavedTournamentSlot,
 } from '@/lib/tournament-persistence';
 import {
   MAX_PARTICIPANTS,
@@ -90,14 +91,25 @@ function repairTournamentState(
   };
 }
 
+function applySavedSlot(slot: SavedTournamentSlot) {
+  return {
+    setupPlayers: slot.setupPlayers,
+    tournament: slot.tournament
+      ? repairTournamentState(normalizeTournamentState(slot.tournament), slot.setupPlayers)
+      : null,
+    history: slot.history.map(normalizeTournamentState),
+    phase: slot.phase,
+  };
+}
+
 export function useTournament() {
   const [phase, setPhase] = useState<TournamentPhase>('setup');
   const [setupPlayers, setSetupPlayers] = useState<ParticipantInput[]>(createEmptyPlayers(4));
   const [tournament, setTournament] = useState<TournamentState | null>(null);
   const [history, setHistory] = useState<TournamentState[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [hasSavedSession, setHasSavedSession] = useState(false);
-  const [savedSessionSummary, setSavedSessionSummary] = useState<string | null>(null);
+  const [savedTournaments, setSavedTournaments] = useState<SavedTournamentSlot[]>([]);
+  const [activeSaveId, setActiveSaveId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const skipPersistRef = useRef(true);
 
@@ -111,27 +123,17 @@ export function useTournament() {
   const canContinueTournament = Boolean(tournament);
   const isBracketPhase = phase === 'bracket' && tournament !== null;
 
+  const refreshSavedTournaments = useCallback(async () => {
+    const slots = await loadAllSavedTournaments();
+    setSavedTournaments(slots);
+    return slots;
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
-    loadTournamentSession().then((session) => {
+    refreshSavedTournaments().then(() => {
       if (cancelled) return;
-
-      if (session) {
-        setSetupPlayers(session.setupPlayers);
-        setTournament(
-          repairTournamentState(
-            session.tournament ? normalizeTournamentState(session.tournament) : null,
-            session.setupPlayers,
-          ),
-        );
-        setHistory(session.history.map(normalizeTournamentState));
-        setPhase(session.phase);
-        setHasSavedSession(true);
-        setSavedSessionSummary(describeSavedSession(session));
-        setLastSavedAt(session.savedAt);
-      }
-
       skipPersistRef.current = false;
       setIsHydrated(true);
     });
@@ -139,7 +141,7 @@ export function useTournament() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshSavedTournaments]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -157,44 +159,56 @@ export function useTournament() {
   }, [isHydrated, setupPlayers]);
 
   const persistCurrentSession = useCallback(async () => {
-    const savedAt = await saveTournamentSession({
+    const result = await upsertSavedTournament(activeSaveId, {
       phase,
       setupPlayers,
       tournament,
       history,
     });
-    const summary = describeSavedSession({
-      version: 1,
-      savedAt,
-      phase,
-      setupPlayers,
-      tournament,
-      history,
-    });
-    setHasSavedSession(true);
-    setLastSavedAt(savedAt);
-    setSavedSessionSummary(summary);
-    return { savedAt, summary };
-  }, [phase, setupPlayers, tournament, history]);
+    setActiveSaveId(result.slotId);
+    setLastSavedAt(result.savedAt);
+    await refreshSavedTournaments();
+    return result;
+  }, [activeSaveId, phase, setupPlayers, tournament, history, refreshSavedTournaments]);
 
   useEffect(() => {
-    if (!isHydrated || skipPersistRef.current) return;
+    if (!isHydrated || skipPersistRef.current || !activeSaveId) return;
 
     const timeoutId = setTimeout(() => {
       persistCurrentSession().catch(() => undefined);
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [isHydrated, phase, setupPlayers, tournament, history, persistCurrentSession]);
+  }, [isHydrated, activeSaveId, phase, setupPlayers, tournament, history, persistCurrentSession]);
 
   const saveTournament = useCallback(async () => {
     try {
-      const { summary } = await persistCurrentSession();
-      Alert.alert('Saved', `${summary}\n\nProgress will remain after you close the app.`);
+      const { slot } = await persistCurrentSession();
+      Alert.alert('Saved', `${slot.summary}\n\nSaved to "${slot.label}".`);
     } catch {
       Alert.alert('Save failed', 'Could not save tournament progress. Try again.');
     }
   }, [persistCurrentSession]);
+
+  const loadSavedTournament = useCallback(async (saveId: string) => {
+    const slot = await loadSavedTournamentById(saveId);
+    if (!slot) {
+      Alert.alert('Load failed', 'That saved tournament could not be found.');
+      await refreshSavedTournaments();
+      return;
+    }
+
+    skipPersistRef.current = true;
+    const next = applySavedSlot(slot);
+    setSetupPlayers(next.setupPlayers);
+    setTournament(next.tournament);
+    setHistory(next.history);
+    setPhase(next.phase);
+    setActiveSaveId(slot.id);
+    setLastSavedAt(slot.savedAt);
+    await refreshSavedTournaments();
+    skipPersistRef.current = false;
+  }, [refreshSavedTournaments]);
 
   const continueTournament = useCallback(() => {
     if (!tournament) return;
@@ -236,6 +250,8 @@ export function useTournament() {
     setTournament(next);
     setHistory([]);
     setPhase('bracket');
+    setActiveSaveId(null);
+    setLastSavedAt(null);
   }, [setupPlayers]);
 
   const goHome = useCallback(() => {
@@ -246,10 +262,11 @@ export function useTournament() {
     setTournament(null);
     setHistory([]);
     setPhase('setup');
-    await clearTournamentSession();
-    setHasSavedSession(false);
-    setSavedSessionSummary(null);
+    setActiveSaveId(null);
     setLastSavedAt(null);
+    setSetupPlayers(createEmptyPlayers(4));
+    await clearAllSavedTournaments();
+    setSavedTournaments([]);
   }, []);
 
   const pickWinner = useCallback((matchId: string, participantId: string) => {
@@ -346,8 +363,8 @@ export function useTournament() {
     champion,
     canUndo,
     isHydrated,
-    hasSavedSession,
-    savedSessionSummary,
+    savedTournaments,
+    activeSaveId,
     lastSavedAt,
     canContinueTournament,
     isBracketPhase,
@@ -356,6 +373,7 @@ export function useTournament() {
     loadPresetRoster,
     shuffleRoster,
     saveTournament,
+    loadSavedTournament,
     continueTournament,
     startTournament,
     goHome,

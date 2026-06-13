@@ -35,13 +35,15 @@ export function TournamentScreen() {
     champion,
     canUndo,
     isHydrated,
-    savedSessionSummary,
+    savedTournaments,
+    activeSaveId,
     canContinueTournament,
     syncNameFields,
     updateParticipantName,
     loadPresetRoster,
     shuffleRoster,
     saveTournament,
+    loadSavedTournament,
     continueTournament,
     startTournament,
     goHome,
@@ -124,10 +126,11 @@ export function TournamentScreen() {
             onChangeName={updateParticipantName}
             onLoadPreset={loadPresetRoster}
             onShuffle={shuffleRoster}
-            onSave={saveTournament}
             onContinue={continueTournament}
             canContinueTournament={canContinueTournament}
-            savedSessionSummary={savedSessionSummary}
+            savedTournaments={savedTournaments}
+            activeSaveId={activeSaveId}
+            onLoadSave={loadSavedTournament}
             onStart={startTournament}
           />
         </View>
