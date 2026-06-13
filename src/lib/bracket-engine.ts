@@ -32,23 +32,27 @@ function slotFromParticipant(participant: Participant): BracketSlot {
 
 /** How many matches per round, and whether a round starts with one auto-advanced entrant. */
 export function computeRoundStructure(playerCount: number) {
-  let count = Math.max(playerCount, MIN_PARTICIPANTS);
+  let teams = Math.max(playerCount, MIN_PARTICIPANTS);
   const matchCounts: number[] = [];
   const incomingBye: boolean[] = [];
 
-  while (count > 1) {
-    const roundBye = count % 2 === 1;
+  while (teams > 1) {
+    const roundBye = teams % 2 === 1;
     incomingBye.push(roundBye);
-    if (roundBye) count -= 1;
-    matchCounts.push(count / 2);
-    count = count / 2 + (roundBye ? 1 : 0);
+    const playingTeams = roundBye ? teams - 1 : teams;
+    const matches = Math.floor(playingTeams / 2);
+    matchCounts.push(matches);
+
+    const roundIndex = matchCounts.length - 1;
+    // Round 1 embeds the bye walkover in matchCounts[0]; later rounds add a separate bye match.
+    teams = roundIndex === 0 && roundBye ? matches + 1 : matches + (roundBye ? 1 : 0);
   }
 
   return { matchCounts, incomingBye };
 }
 
 function byeMatchIndex(roundIndex: number, matchCounts: number[], incomingBye: boolean[]): number | null {
-  if (roundIndex <= 0 || !incomingBye[roundIndex]) return null;
+  if (!incomingBye[roundIndex]) return null;
   return matchCounts[roundIndex];
 }
 
@@ -321,16 +325,16 @@ export function createTournament(participantNames: string[]): TournamentState {
   const firstRound = rounds[0];
   if (firstRound) {
     if (incomingBye[0]) {
-      const byeCarrier = slotFromParticipant(participants[participants.length - 1]);
-      const waitingMatch = firstRound.matches[firstRound.matches.length - 1];
-      if (waitingMatch) {
-        waitingMatch.slotA = byeCarrier;
-        waitingMatch.slotB = byeSlot();
-      }
-      for (let matchIndex = 0; matchIndex < firstRound.matches.length - 1; matchIndex += 1) {
+      const byeMatchIndex = firstRound.matches.length - 1;
+      for (let matchIndex = 0; matchIndex < byeMatchIndex; matchIndex += 1) {
         const match = firstRound.matches[matchIndex];
         match.slotA = slotFromParticipant(participants[matchIndex * 2]);
         match.slotB = slotFromParticipant(participants[matchIndex * 2 + 1]);
+      }
+      const byeMatch = firstRound.matches[byeMatchIndex];
+      if (byeMatch) {
+        byeMatch.slotA = slotFromParticipant(participants[participants.length - 1]);
+        byeMatch.slotB = byeSlot();
       }
     } else {
       for (let matchIndex = 0; matchIndex < firstRound.matches.length; matchIndex += 1) {

@@ -24,7 +24,7 @@ type SetupPanelProps = {
   onStart: () => void;
 };
 
-const QUICK_COUNTS = [2, 4, 8, 16, 32, 64] as const;
+const QUICK_COUNTS = [2, 4, 8, 16, 32, 64, 128] as const;
 
 export function SetupPanel({
   participantCount,
@@ -61,7 +61,7 @@ export function SetupPanel({
   }, []);
 
   const applyCount = (raw: string) => {
-    setCountDraft(raw.replace(/\D/g, '').slice(0, 2));
+    setCountDraft(raw.replace(/\D/g, '').slice(0, 3));
   };
 
   const commitCount = () => {
@@ -119,7 +119,7 @@ export function SetupPanel({
               onBlur={commitCount}
               onFocus={() => focusInput(countInputRef.current)}
               keyboardType="number-pad"
-              maxLength={2}
+              maxLength={3}
               returnKeyType="done"
               onSubmitEditing={commitCount}
             />

@@ -43,7 +43,7 @@ export type TournamentState = {
 export type TournamentPhase = 'setup' | 'bracket';
 
 export const MIN_PARTICIPANTS = 2;
-export const MAX_PARTICIPANTS = 99;
+export const MAX_PARTICIPANTS = 128;
 
 export const BracketSlotLabels = {
   bye: '[ BYE ]',
