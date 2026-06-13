@@ -1,4 +1,5 @@
 import { DarkTheme, ThemeProvider, Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { Netrunner } from '@/constants/netrunner-theme';
@@ -17,14 +18,16 @@ const NetrunnerTheme = {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={NetrunnerTheme}>
-      <AnimatedSplashOverlay />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: Netrunner.background },
-        }}
-      />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={NetrunnerTheme}>
+        <AnimatedSplashOverlay />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: Netrunner.background },
+          }}
+        />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

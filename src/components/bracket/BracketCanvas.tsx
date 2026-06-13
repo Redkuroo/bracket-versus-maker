@@ -1,61 +1,90 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import { BracketRoundColumn } from '@/components/bracket/BracketRoundColumn';
 import { BracketLayout } from '@/constants/netrunner-theme';
 import { getCanvasHeight } from '@/lib/bracket-engine';
 import type { TournamentState } from '@/types/bracket';
 
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 2.5;
+
+function clamp(value: number, lower: number, upper: number) {
+  'worklet';
+  return Math.min(upper, Math.max(lower, value));
+}
+
 type BracketCanvasProps = {
   tournament: TournamentState;
-  scale?: number;
   onSelectWinner: (matchId: string, participantId: string) => void;
 };
 
-export function BracketCanvas({ tournament, scale = 1, onSelectWinner }: BracketCanvasProps) {
+export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps) {
   const unitHeight = BracketLayout.unitHeight;
   const canvasHeight = getCanvasHeight(tournament.rounds, unitHeight);
   const canvasWidth =
     tournament.rounds.length * (BracketLayout.matchWidth + BracketLayout.roundGap) +
     BracketLayout.canvasPadding * 2;
-  const scaledWidth = canvasWidth * scale;
-  const scaledHeight = (canvasHeight + 48) * scale;
+
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((event) => {
+      scale.value = clamp(savedScale.value * event.scale, MIN_SCALE, MAX_SCALE);
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+    });
+
+  const pan = Gesture.Pan()
+    .minPointers(1)
+    .maxPointers(1)
+    .activeOffsetX([-12, 12])
+    .activeOffsetY([-12, 12])
+    .onUpdate((event) => {
+      translateX.value = savedTranslateX.value + event.translationX;
+      translateY.value = savedTranslateY.value + event.translationY;
+    })
+    .onEnd(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+
+  const gesture = Gesture.Simultaneous(pinch, pan);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView
-        horizontal
-        bounces
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.horizontalContent, { minWidth: scaledWidth }]}>
-        <ScrollView
-          nestedScrollEnabled
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.verticalContent, { minHeight: scaledHeight }]}>
-          <View style={[styles.scaleHost, { width: scaledWidth, height: scaledHeight }]}>
-            <View
-              style={[
-                styles.bracketTree,
-                {
-                  height: canvasHeight,
-                  transform: [{ scale }],
-                  transformOrigin: 'top left',
-                },
-              ]}>
-              {tournament.rounds.map((round, index) => (
-                <BracketRoundColumn
-                  key={round.index}
-                  round={round}
-                  canvasHeight={canvasHeight}
-                  unitHeight={unitHeight}
-                  activeMatchId={tournament.activeMatchId}
-                  isFinal={index === tournament.rounds.length - 1}
-                  onSelectWinner={onSelectWinner}
-                />
-              ))}
-            </View>
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={[styles.canvas, animatedStyle]}>
+          <View style={[styles.bracketTree, { height: canvasHeight, width: canvasWidth }]}>
+            {tournament.rounds.map((round, index) => (
+              <BracketRoundColumn
+                key={round.index}
+                round={round}
+                canvasHeight={canvasHeight}
+                unitHeight={unitHeight}
+                activeMatchId={tournament.activeMatchId}
+                isFinal={index === tournament.rounds.length - 1}
+                onSelectWinner={onSelectWinner}
+              />
+            ))}
           </View>
-        </ScrollView>
-      </ScrollView>
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
@@ -63,16 +92,11 @@ export function BracketCanvas({ tournament, scale = 1, onSelectWinner }: Bracket
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
+    overflow: 'hidden',
   },
-  horizontalContent: {
+  canvas: {
     paddingHorizontal: BracketLayout.canvasPadding,
     paddingVertical: BracketLayout.canvasPadding,
-  },
-  verticalContent: {
-    paddingBottom: BracketLayout.canvasPadding,
-  },
-  scaleHost: {
-    overflow: 'visible',
   },
   bracketTree: {
     flexDirection: 'row',

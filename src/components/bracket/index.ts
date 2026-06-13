@@ -7,4 +7,3 @@ export { PlayerCard } from '@/components/bracket/PlayerCard';
 export { SetupPanel } from '@/components/bracket/SetupPanel';
 export { TournamentScreen } from '@/components/bracket/TournamentScreen';
 export { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
-export { BracketZoom, ZoomControls } from '@/components/bracket/ZoomControls';
