@@ -272,7 +272,17 @@ export function useTournament() {
   const confirmPlayers = useCallback((names: string[]) => {
     setTournament((current) => {
       if (!current) return current;
-      return normalizeTournamentState(assignControllers(current, names));
+
+      const result = assignControllers(current, names);
+      if (!result.success) {
+        Alert.alert(
+          'Cannot assign players',
+          'Each human player must control a different character than their own name, and opponents in the same match must have different players.',
+        );
+        return current;
+      }
+
+      return normalizeTournamentState(result.state);
     });
   }, []);
 

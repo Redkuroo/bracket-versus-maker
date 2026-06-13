@@ -70,7 +70,7 @@ export function AddPlayersModal({
             ADD PLAYERS
           </HudText>
           <HudText variant="caption" color={Netrunner.textMuted} style={styles.subtitle}>
-            Enter human player names. Characters in Round 1 will be assigned evenly when you confirm.
+            Enter human player names. Round 1 assigns randomly with even splits. A player never controls a character with the same name, or both sides of one match.
           </HudText>
 
           <ScrollView

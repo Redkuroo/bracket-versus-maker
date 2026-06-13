@@ -31,11 +31,16 @@ export function ReassignControllerModal({
             REASSIGN CONTROLLER
           </HudText>
           <HudText variant="caption" color={Netrunner.textMuted} style={styles.subtitle}>
-            Choose who controls {participantName}
+            Choose who controls {participantName}. Same-name and duplicate match controllers are excluded.
           </HudText>
 
           <View style={styles.playerList}>
-            {players.map((player) => {
+            {players.length === 0 ? (
+              <HudText variant="caption" color={Netrunner.textMuted}>
+                No eligible players for this character.
+              </HudText>
+            ) : (
+              players.map((player) => {
               const isSelected = player.id === currentPlayerId;
               return (
                 <Pressable
@@ -54,7 +59,8 @@ export function ReassignControllerModal({
                   </HudText>
                 </Pressable>
               );
-            })}
+            })
+            )}
           </View>
 
           <HudButton label="Cancel" variant="ghost" onPress={onClose} style={styles.cancelButton} />

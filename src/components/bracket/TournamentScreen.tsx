@@ -10,6 +10,7 @@ import { ReassignControllerModal } from '@/components/bracket/ReassignController
 import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
 import { Netrunner } from '@/constants/netrunner-theme';
+import { getEligibleControllersForParticipant } from '@/lib/bracket-engine';
 import { useTournament } from '@/hooks/use-tournament';
 
 const MIN_BRACKET_HEIGHT = 320;
@@ -64,6 +65,11 @@ export function TournamentScreen() {
   const reassignTarget = useMemo(() => {
     if (!tournament || !reassignTargetId) return null;
     return tournament.participants.find((participant) => participant.id === reassignTargetId) ?? null;
+  }, [tournament, reassignTargetId]);
+
+  const eligibleReassignPlayers = useMemo(() => {
+    if (!tournament || !reassignTargetId) return [];
+    return getEligibleControllersForParticipant(tournament, reassignTargetId);
   }, [tournament, reassignTargetId]);
 
   const activeMatch = useMemo(() => {
@@ -194,7 +200,7 @@ export function TournamentScreen() {
           <ReassignControllerModal
             visible={Boolean(reassignTargetId)}
             participantName={reassignTarget.name}
-            players={tournamentPlayers}
+            players={eligibleReassignPlayers}
             currentPlayerId={controllerAssignments[reassignTarget.id]}
             onSelect={(playerId) => reassignController(reassignTarget.id, playerId)}
             onClose={() => setReassignTargetId(null)}
