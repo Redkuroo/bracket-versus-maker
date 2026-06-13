@@ -47,56 +47,80 @@ export function computeRoundStructure(playerCount: number) {
   return { matchCounts, incomingBye };
 }
 
-function slotKey(target: AdvanceTarget) {
-  return `${target.roundIndex}:${target.matchIndex}:${target.slot}`;
+function byeMatchIndex(roundIndex: number, matchCounts: number[], incomingBye: boolean[]): number | null {
+  if (roundIndex <= 0 || !incomingBye[roundIndex]) return null;
+  return matchCounts[roundIndex];
+}
+
+function roundMatchTotal(roundIndex: number, matchCounts: number[], incomingBye: boolean[]): number {
+  const byeIndex = byeMatchIndex(roundIndex, matchCounts, incomingBye);
+  return matchCounts[roundIndex] + (byeIndex !== null ? 1 : 0);
+}
+
+function standardFeeder(roundIndex: number, matchIndex: number): AdvanceTarget {
+  return {
+    roundIndex: roundIndex + 1,
+    matchIndex: Math.floor(matchIndex / 2),
+    slot: matchIndex % 2 === 0 ? 'slotA' : 'slotB',
+  };
 }
 
 function buildAdvanceLinks(matchCounts: number[], incomingBye: boolean[]) {
   const links = new Map<MatchKey, AdvanceTarget>();
-  const occupied = new Set<string>();
+  const roundCount = matchCounts.length;
 
-  const findOpenFrom = (roundIndex: number): AdvanceTarget => {
-    for (let round = roundIndex; round < matchCounts.length; round += 1) {
-      for (let matchIndex = 0; matchIndex < matchCounts[round]; matchIndex += 1) {
-        for (const slot of ['slotA', 'slotB'] as const) {
-          const key = `${round}:${matchIndex}:${slot}`;
-          if (!occupied.has(key)) {
-            return { roundIndex: round, matchIndex, slot };
-          }
-        }
-      }
+  // Winners from round r enter round r+1 playing matches in standard pairs.
+  for (let roundIndex = 0; roundIndex < roundCount - 1; roundIndex += 1) {
+    const nextPlaying = matchCounts[roundIndex + 1];
+
+    for (let matchIndex = 0; matchIndex < nextPlaying; matchIndex += 1) {
+      links.set(`${roundIndex}:${matchIndex * 2}` as MatchKey, {
+        roundIndex: roundIndex + 1,
+        matchIndex,
+        slot: 'slotA',
+      });
+      links.set(`${roundIndex}:${matchIndex * 2 + 1}` as MatchKey, {
+        roundIndex: roundIndex + 1,
+        matchIndex,
+        slot: 'slotB',
+      });
     }
-    throw new Error('No open bracket slot available for advancement.');
-  };
 
-  const occupy = (target: AdvanceTarget) => {
-    occupied.add(slotKey(target));
-  };
-
-  for (let roundIndex = 0; roundIndex < matchCounts.length - 1; roundIndex += 1) {
-    const winners: MatchKey[] = Array.from(
-      { length: matchCounts[roundIndex] },
-      (_, matchIndex) => `${roundIndex}:${matchIndex}` as MatchKey,
-    );
-
+    // Odd winner count: last winner enters a bye walkover at the bottom of the next round.
     if (incomingBye[roundIndex + 1]) {
-      const skipKey = winners.pop();
-      if (skipKey) {
-        const target = findOpenFrom(roundIndex + 2);
-        links.set(skipKey, target);
-        occupy(target);
+      links.set(`${roundIndex}:${nextPlaying * 2}` as MatchKey, {
+        roundIndex: roundIndex + 1,
+        matchIndex: nextPlaying,
+        slot: 'slotA',
+      });
+    }
+  }
+
+  // Where each match's winner goes next.
+  for (let roundIndex = 0; roundIndex < roundCount - 1; roundIndex += 1) {
+    const playing = matchCounts[roundIndex];
+    const roundByeIndex = byeMatchIndex(roundIndex, matchCounts, incomingBye);
+
+    for (let matchIndex = 0; matchIndex < playing; matchIndex += 1) {
+      const key = `${roundIndex}:${matchIndex}` as MatchKey;
+      if (links.has(key)) continue;
+
+      const target = standardFeeder(roundIndex, matchIndex);
+      if (target.matchIndex < matchCounts[roundIndex + 1]) {
+        links.set(key, target);
       }
     }
 
-    for (let matchIndex = 0; matchIndex < matchCounts[roundIndex + 1]; matchIndex += 1) {
-      for (const slot of ['slotA', 'slotB'] as const) {
-        const destinationKey = `${roundIndex + 1}:${matchIndex}:${slot}`;
-        if (occupied.has(destinationKey)) continue;
-        const sourceKey = winners.shift();
-        if (!sourceKey) break;
-        const target = { roundIndex: roundIndex + 1, matchIndex, slot };
-        links.set(sourceKey, target);
-        occupy(target);
+    if (roundByeIndex !== null && roundIndex + 1 < roundCount) {
+      const key = `${roundIndex}:${roundByeIndex}` as MatchKey;
+      if (incomingBye[roundIndex + 1]) {
+        links.set(key, {
+          roundIndex: roundIndex + 1,
+          matchIndex: matchCounts[roundIndex + 1],
+          slot: 'slotA',
+        });
+      } else {
+        links.set(key, standardFeeder(roundIndex, roundByeIndex));
       }
     }
   }
@@ -346,16 +370,20 @@ export function createTournament(participantNames: string[]): TournamentState {
   const rounds: BracketRound[] = [];
 
   for (let roundIndex = 0; roundIndex < matchCounts.length; roundIndex += 1) {
+    const totalMatches = roundMatchTotal(roundIndex, matchCounts, incomingBye);
+    const roundByeIndex = byeMatchIndex(roundIndex, matchCounts, incomingBye);
     const matches: BracketMatch[] = [];
 
-    for (let matchIndex = 0; matchIndex < matchCounts[roundIndex]; matchIndex += 1) {
+    for (let matchIndex = 0; matchIndex < totalMatches; matchIndex += 1) {
+      const isByeWalkover = roundByeIndex !== null && matchIndex === roundByeIndex;
       const key: MatchKey = `${roundIndex}:${matchIndex}`;
+
       matches.push({
         id: `r${roundIndex}-m${matchIndex}`,
         roundIndex,
         matchIndex,
         slotA: emptySlot(),
-        slotB: emptySlot(),
+        slotB: isByeWalkover ? byeSlot() : emptySlot(),
         winnerId: null,
         status: 'pending',
         advanceTo: advanceLinks.get(key),
