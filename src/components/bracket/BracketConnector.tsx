@@ -7,6 +7,8 @@ type BracketRoundConnectorsProps = {
   pairIndexes: number[];
   unitHeight: number;
   matchNodeHeight: number;
+  firstRoundMatchCount: number;
+  roundMatchCount: number;
   verticalOffset: number;
   roundIndex: number;
   getPairActive: (topIndex: number, bottomIndex: number) => boolean;
@@ -17,6 +19,8 @@ export function BracketRoundConnectors({
   pairIndexes,
   unitHeight,
   matchNodeHeight,
+  firstRoundMatchCount,
+  roundMatchCount,
   verticalOffset,
   roundIndex,
   getPairActive,
@@ -28,9 +32,24 @@ export function BracketRoundConnectors({
     <View pointerEvents="none" style={[styles.layer, { left: matchWidth, width: roundGap }]}>
       {pairIndexes.map((topIndex) => {
         const bottomIndex = topIndex + 1;
-        const topCenter = getMatchCenterY(roundIndex, topIndex, unitHeight, matchNodeHeight) + verticalOffset;
+        const topCenter =
+          getMatchCenterY(
+            roundIndex,
+            topIndex,
+            unitHeight,
+            matchNodeHeight,
+            firstRoundMatchCount,
+            roundMatchCount,
+          ) + verticalOffset;
         const bottomCenter =
-          getMatchCenterY(roundIndex, bottomIndex, unitHeight, matchNodeHeight) + verticalOffset;
+          getMatchCenterY(
+            roundIndex,
+            bottomIndex,
+            unitHeight,
+            matchNodeHeight,
+            firstRoundMatchCount,
+            roundMatchCount,
+          ) + verticalOffset;
         const forkCenter = (topCenter + bottomCenter) / 2;
         const isActive = getPairActive(topIndex, bottomIndex);
         const isComplete = getPairComplete(topIndex, bottomIndex);

@@ -12,6 +12,7 @@ type BracketRoundColumnProps = {
   canvasHeight: number;
   unitHeight: number;
   matchNodeHeight: number;
+  firstRoundMatchCount: number;
   verticalOffset: number;
   activeMatchId: string | null;
   onSelectWinner: (matchId: string, participantId: string) => void;
@@ -23,6 +24,7 @@ export function BracketRoundColumn({
   canvasHeight,
   unitHeight,
   matchNodeHeight,
+  firstRoundMatchCount,
   verticalOffset,
   activeMatchId,
   onSelectWinner,
@@ -46,7 +48,15 @@ export function BracketRoundColumn({
 
       <View style={[styles.matchesLayer, { height: canvasHeight }]}>
         {round.matches.map((match, matchIndex) => {
-          const top = getMatchTop(round.index, matchIndex, unitHeight) + verticalOffset;
+          const top =
+            getMatchTop(
+              round.index,
+              matchIndex,
+              unitHeight,
+              firstRoundMatchCount,
+              round.matches.length,
+              matchNodeHeight,
+            ) + verticalOffset;
           const isActive = match.id === activeMatchId;
 
           return (
@@ -64,6 +74,8 @@ export function BracketRoundColumn({
           <BracketRoundConnectors
             pairIndexes={pairIndexes}
             roundIndex={round.index}
+            firstRoundMatchCount={firstRoundMatchCount}
+            roundMatchCount={round.matches.length}
             unitHeight={unitHeight}
             matchNodeHeight={matchNodeHeight}
             verticalOffset={verticalOffset}

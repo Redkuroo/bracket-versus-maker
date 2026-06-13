@@ -14,6 +14,11 @@ export type BracketMatch = {
   slotB: BracketSlot;
   winnerId: string | null;
   status: MatchStatus;
+  advanceTo?: {
+    roundIndex: number;
+    matchIndex: number;
+    slot: 'slotA' | 'slotB';
+  };
 };
 
 export type BracketRound = {

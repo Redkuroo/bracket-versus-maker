@@ -151,7 +151,7 @@ export function SetupPanel({
               Player / Team Names
             </HudText>
             <HudText variant="caption" color={Netrunner.textMuted}>
-              Enter names for all {participantCount} players.
+              Round 1 pairs every entered player. {bracketInfo.formula}
             </HudText>
             <View style={styles.nameGrid}>
               {Array.from({ length: participantCount }, (_, index) => (
@@ -172,7 +172,7 @@ export function SetupPanel({
             </View>
           </View>
 
-          <BracketSlotPreviewList slots={slotPreview} />
+          <BracketSlotPreviewList slots={slotPreview} playerCount={participantCount} />
 
           <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
         </View>

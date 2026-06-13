@@ -25,12 +25,8 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
   const unitHeight = BracketLayout.unitHeight;
   const matchNodeHeight = BracketLayout.matchNodeHeight;
   const canvasHeight = getCanvasHeight(tournament.rounds, unitHeight);
-  const verticalOffset = getBracketVerticalOffset(
-    tournament.rounds.length,
-    tournament.rounds[0]?.matches.length ?? 1,
-    unitHeight,
-    matchNodeHeight,
-  );
+  const firstRoundMatchCount = tournament.rounds[0]?.matches.length ?? 1;
+  const verticalOffset = getBracketVerticalOffset(tournament.rounds, unitHeight, matchNodeHeight);
   const treeHeight = canvasHeight + BracketLayout.roundLabelHeight;
   const canvasWidth =
     tournament.rounds.length * (BracketLayout.matchWidth + BracketLayout.roundGap) -
@@ -88,6 +84,7 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
                   canvasHeight={canvasHeight}
                   unitHeight={unitHeight}
                   matchNodeHeight={matchNodeHeight}
+                  firstRoundMatchCount={firstRoundMatchCount}
                   verticalOffset={verticalOffset}
                   activeMatchId={tournament.activeMatchId}
                   isFinal={index === tournament.rounds.length - 1}

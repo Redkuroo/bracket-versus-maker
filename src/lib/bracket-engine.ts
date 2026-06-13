@@ -7,85 +7,133 @@ import type {
 } from '@/types/bracket';
 import { MIN_PARTICIPANTS, BracketSlotLabels, type BracketSlotKind } from '@/types/bracket';
 
-function nextPowerOfTwo(value: number): number {
-  let size = 1;
-  while (size < value) size *= 2;
-  return size;
-}
+type MatchKey = `${number}:${number}`;
+type AdvanceTarget = {
+  roundIndex: number;
+  matchIndex: number;
+  slot: 'slotA' | 'slotB';
+};
 
 function byeSlot(): BracketSlot {
   return { participantId: null, name: BracketSlotLabels.bye, isBye: true };
-}
-
-/** Bracket slot order for seed 1..bracketSize (standard single-elimination layout). */
-export function generateSeedOrder(bracketSize: number): number[] {
-  if (bracketSize <= 2) return bracketSize === 2 ? [1, 2] : [1];
-
-  const half = bracketSize / 2;
-  const previous = generateSeedOrder(half);
-  const order: number[] = [];
-
-  for (const seed of previous) {
-    order.push(seed);
-    order.push(bracketSize + 1 - seed);
-  }
-
-  return order;
-}
-
-export function getBracketInfo(playerCount: number) {
-  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
-  const bracketSize = nextPowerOfTwo(safeCount);
-  const byeCount = bracketSize - safeCount;
-
-  return {
-    playerCount: safeCount,
-    bracketSize,
-    byeCount,
-    isPerfectBracket: safeCount === bracketSize,
-    formula: `${bracketSize} slots − ${safeCount} players = ${byeCount} bye${byeCount === 1 ? '' : 's'}`,
-  };
-}
-
-export type BracketInfo = ReturnType<typeof getBracketInfo>;
-
-export function getBracketSlotPreview(participantNames: string[], playerCount: number) {
-  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
-  const { bracketSize } = getBracketInfo(safeCount);
-  const names = Array.from({ length: safeCount }, (_, index) => participantNames[index] ?? '');
-  const participants = createParticipants(names);
-  const slots = seedBracketSlots(participants, bracketSize);
-
-  return slots.map((slot, index) => ({
-    slotNumber: index + 1,
-    label: getSlotDisplayLabel(slot),
-    kind: getSlotKind(slot),
-  }));
-}
-
-export type BracketSlotPreview = ReturnType<typeof getBracketSlotPreview>[number];
-
-function seedBracketSlots(participants: Participant[], bracketSize: number): BracketSlot[] {
-  const slots: BracketSlot[] = Array.from({ length: bracketSize }, () => byeSlot());
-  const seedOrder = generateSeedOrder(bracketSize);
-
-  for (let slotIndex = 0; slotIndex < bracketSize; slotIndex += 1) {
-    const seed = seedOrder[slotIndex];
-    if (seed <= participants.length) {
-      slots[slotIndex] = slotFromParticipant(participants[seed - 1]);
-    }
-  }
-
-  return slots;
 }
 
 function emptySlot(): BracketSlot {
   return { participantId: null, name: BracketSlotLabels.empty, isBye: false };
 }
 
+function slotFromParticipant(participant: Participant): BracketSlot {
+  return {
+    participantId: participant.id,
+    name: participant.name,
+    isBye: participant.isBye,
+  };
+}
+
+/** How many matches per round, and whether a round starts with one auto-advanced entrant. */
+export function computeRoundStructure(playerCount: number) {
+  let count = Math.max(playerCount, MIN_PARTICIPANTS);
+  const matchCounts: number[] = [];
+  const incomingBye: boolean[] = [];
+
+  while (count > 1) {
+    const roundBye = count % 2 === 1;
+    incomingBye.push(roundBye);
+    if (roundBye) count -= 1;
+    matchCounts.push(count / 2);
+    count = count / 2 + (roundBye ? 1 : 0);
+  }
+
+  return { matchCounts, incomingBye };
+}
+
+function slotKey(target: AdvanceTarget) {
+  return `${target.roundIndex}:${target.matchIndex}:${target.slot}`;
+}
+
+function buildAdvanceLinks(matchCounts: number[], incomingBye: boolean[]) {
+  const links = new Map<MatchKey, AdvanceTarget>();
+  const occupied = new Set<string>();
+
+  const findOpenFrom = (roundIndex: number): AdvanceTarget => {
+    for (let round = roundIndex; round < matchCounts.length; round += 1) {
+      for (let matchIndex = 0; matchIndex < matchCounts[round]; matchIndex += 1) {
+        for (const slot of ['slotA', 'slotB'] as const) {
+          const key = `${round}:${matchIndex}:${slot}`;
+          if (!occupied.has(key)) {
+            return { roundIndex: round, matchIndex, slot };
+          }
+        }
+      }
+    }
+    throw new Error('No open bracket slot available for advancement.');
+  };
+
+  const occupy = (target: AdvanceTarget) => {
+    occupied.add(slotKey(target));
+  };
+
+  for (let roundIndex = 0; roundIndex < matchCounts.length - 1; roundIndex += 1) {
+    const winners: MatchKey[] = Array.from(
+      { length: matchCounts[roundIndex] },
+      (_, matchIndex) => `${roundIndex}:${matchIndex}` as MatchKey,
+    );
+
+    if (incomingBye[roundIndex + 1]) {
+      const skipKey = winners.pop();
+      if (skipKey) {
+        const target = findOpenFrom(roundIndex + 2);
+        links.set(skipKey, target);
+        occupy(target);
+      }
+    }
+
+    for (let matchIndex = 0; matchIndex < matchCounts[roundIndex + 1]; matchIndex += 1) {
+      for (const slot of ['slotA', 'slotB'] as const) {
+        const destinationKey = `${roundIndex + 1}:${matchIndex}:${slot}`;
+        if (occupied.has(destinationKey)) continue;
+        const sourceKey = winners.shift();
+        if (!sourceKey) break;
+        const target = { roundIndex: roundIndex + 1, matchIndex, slot };
+        links.set(sourceKey, target);
+        occupy(target);
+      }
+    }
+  }
+
+  return links;
+}
+
 export function isPowerOfTwo(value: number): boolean {
   return value > 0 && (value & (value - 1)) === 0;
 }
+
+export function getBracketInfo(playerCount: number) {
+  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
+  const { matchCounts, incomingBye } = computeRoundStructure(safeCount);
+  const round1Matches = matchCounts[0] ?? 0;
+  const round1Byes = incomingBye[0] ? 1 : 0;
+  const laterRoundByes = incomingBye.slice(1).filter(Boolean).length;
+
+  return {
+    playerCount: safeCount,
+    round1Matches,
+    round1Byes,
+    laterRoundByes,
+    totalRounds: matchCounts.length,
+    isPerfectBracket: isPowerOfTwo(safeCount),
+    formula:
+      round1Byes > 0
+        ? `Round 1: ${safeCount} players → ${round1Matches} matches + 1 bye`
+        : `Round 1: ${safeCount} players → ${round1Matches} matches (everyone plays)`,
+    byeSummary:
+      laterRoundByes > 0
+        ? `${laterRoundByes} later-round bye${laterRoundByes === 1 ? '' : 's'} when an odd number of teams advances`
+        : 'No byes required',
+  };
+}
+
+export type BracketInfo = ReturnType<typeof getBracketInfo>;
 
 export function getSlotKind(slot: BracketSlot): BracketSlotKind {
   if (slot.participantId) return 'player';
@@ -99,13 +147,40 @@ export function getSlotDisplayLabel(slot: BracketSlot): string {
   return BracketSlotLabels.empty;
 }
 
-function slotFromParticipant(participant: Participant): BracketSlot {
-  return {
-    participantId: participant.id,
-    name: participant.name,
-    isBye: participant.isBye,
-  };
+export function getBracketSlotPreview(participantNames: string[], playerCount: number) {
+  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
+  const names = Array.from({ length: safeCount }, (_, index) => participantNames[index] ?? '');
+  const participants = createParticipants(names);
+  const preview: { slotNumber: number; label: string; kind: BracketSlotKind }[] = [];
+  let slotNumber = 1;
+
+  for (let matchIndex = 0; matchIndex < Math.floor(safeCount / 2); matchIndex += 1) {
+    const playerA = participants[matchIndex * 2];
+    const playerB = participants[matchIndex * 2 + 1];
+    preview.push({
+      slotNumber: slotNumber++,
+      label: playerA.name,
+      kind: 'player',
+    });
+    preview.push({
+      slotNumber: slotNumber++,
+      label: playerB.name,
+      kind: 'player',
+    });
+  }
+
+  if (safeCount % 2 === 1) {
+    preview.push({
+      slotNumber: slotNumber++,
+      label: BracketSlotLabels.bye,
+      kind: 'bye',
+    });
+  }
+
+  return preview;
 }
+
+export type BracketSlotPreview = ReturnType<typeof getBracketSlotPreview>[number];
 
 function getRoundLabel(roundIndex: number, totalRounds: number): string {
   const roundsFromFinal = totalRounds - roundIndex - 1;
@@ -122,51 +197,9 @@ function cloneRounds(rounds: BracketRound[]): BracketRound[] {
       ...match,
       slotA: { ...match.slotA },
       slotB: { ...match.slotB },
+      advanceTo: match.advanceTo ? { ...match.advanceTo } : undefined,
     })),
   }));
-}
-
-function getMatch(rounds: BracketRound[], roundIndex: number, matchIndex: number): BracketMatch | null {
-  return rounds[roundIndex]?.matches[matchIndex] ?? null;
-}
-
-function advanceWinner(
-  rounds: BracketRound[],
-  match: BracketMatch,
-  winnerId: string,
-  winnerName: string,
-): void {
-  const nextRound = match.roundIndex + 1;
-  const nextMatchIndex = Math.floor(match.matchIndex / 2);
-  const nextMatch = getMatch(rounds, nextRound, nextMatchIndex);
-  if (!nextMatch) return;
-
-  const slot = match.matchIndex % 2 === 0 ? 'slotA' : 'slotB';
-  nextMatch[slot] = {
-    participantId: winnerId,
-    name: winnerName,
-    isBye: false,
-  };
-}
-
-function resolveByeMatch(rounds: BracketRound[], match: BracketMatch): boolean {
-  const { slotA, slotB } = match;
-  const aBye = slotA.isBye;
-  const bBye = slotB.isBye;
-
-  if (!aBye && !bBye) return false;
-  if (aBye && bBye) {
-    match.status = 'complete';
-    return true;
-  }
-
-  const winnerSlot = aBye ? slotB : slotA;
-  if (!winnerSlot.participantId) return false;
-
-  match.winnerId = winnerSlot.participantId;
-  match.status = 'complete';
-  advanceWinner(rounds, match, winnerSlot.participantId, winnerSlot.name);
-  return true;
 }
 
 function refreshMatchStatus(match: BracketMatch): void {
@@ -183,7 +216,52 @@ function refreshMatchStatus(match: BracketMatch): void {
     return;
   }
 
+  if (hasA || hasB) {
+    match.status = 'pending';
+    return;
+  }
+
   match.status = 'pending';
+}
+
+function resolveByeMatch(rounds: BracketRound[], match: BracketMatch): boolean {
+  const { slotA, slotB } = match;
+  const aBye = slotA.isBye;
+  const bBye = slotB.isBye;
+
+  if (!aBye && !bBye) return false;
+
+  if (aBye && bBye) {
+    match.status = 'complete';
+    return true;
+  }
+
+  const winnerSlot = aBye ? slotB : slotA;
+  if (!winnerSlot.participantId || !match.advanceTo) return false;
+
+  match.winnerId = winnerSlot.participantId;
+  match.status = 'complete';
+  placeWinner(rounds, match, winnerSlot.participantId, winnerSlot.name);
+  return true;
+}
+
+function placeWinner(
+  rounds: BracketRound[],
+  match: BracketMatch,
+  winnerId: string,
+  winnerName: string,
+): void {
+  if (!match.advanceTo) return;
+
+  const { roundIndex, matchIndex, slot } = match.advanceTo;
+  const targetMatch = rounds[roundIndex]?.matches[matchIndex];
+  if (!targetMatch) return;
+
+  targetMatch[slot] = {
+    participantId: winnerId,
+    name: winnerName,
+    isBye: false,
+  };
 }
 
 function findActiveMatchId(rounds: BracketRound[]): string | null {
@@ -197,8 +275,7 @@ function findActiveMatchId(rounds: BracketRound[]): string | null {
 
 function findChampionId(rounds: BracketRound[]): string | null {
   const finalRound = rounds[rounds.length - 1];
-  const finalMatch = finalRound?.matches[0];
-  return finalMatch?.winnerId ?? null;
+  return finalRound?.matches[0]?.winnerId ?? null;
 }
 
 function processAutoAdvances(rounds: BracketRound[]): void {
@@ -263,16 +340,16 @@ export function createParticipants(names: string[]): Participant[] {
 
 export function createTournament(participantNames: string[]): TournamentState {
   const participants = createParticipants(participantNames);
-  const bracketSize = nextPowerOfTwo(Math.max(participants.length, MIN_PARTICIPANTS));
-  const roundCount = Math.log2(bracketSize);
-  const seededSlots = seedBracketSlots(participants, bracketSize);
+  const playerCount = Math.max(participants.length, MIN_PARTICIPANTS);
+  const { matchCounts, incomingBye } = computeRoundStructure(playerCount);
+  const advanceLinks = buildAdvanceLinks(matchCounts, incomingBye);
   const rounds: BracketRound[] = [];
 
-  for (let roundIndex = 0; roundIndex < roundCount; roundIndex += 1) {
-    const matchCount = bracketSize / 2 ** (roundIndex + 1);
+  for (let roundIndex = 0; roundIndex < matchCounts.length; roundIndex += 1) {
     const matches: BracketMatch[] = [];
 
-    for (let matchIndex = 0; matchIndex < matchCount; matchIndex += 1) {
+    for (let matchIndex = 0; matchIndex < matchCounts[roundIndex]; matchIndex += 1) {
+      const key: MatchKey = `${roundIndex}:${matchIndex}`;
       matches.push({
         id: `r${roundIndex}-m${matchIndex}`,
         roundIndex,
@@ -281,20 +358,38 @@ export function createTournament(participantNames: string[]): TournamentState {
         slotB: emptySlot(),
         winnerId: null,
         status: 'pending',
+        advanceTo: advanceLinks.get(key),
       });
     }
 
     rounds.push({
       index: roundIndex,
-      label: getRoundLabel(roundIndex, roundCount),
+      label: getRoundLabel(roundIndex, matchCounts.length),
       matches,
     });
   }
 
-  for (let matchIndex = 0; matchIndex < rounds[0].matches.length; matchIndex += 1) {
-    const match = rounds[0].matches[matchIndex];
-    match.slotA = seededSlots[matchIndex * 2];
-    match.slotB = seededSlots[matchIndex * 2 + 1];
+  const firstRound = rounds[0];
+  if (firstRound) {
+    if (incomingBye[0]) {
+      const byeCarrier = slotFromParticipant(participants[participants.length - 1]);
+      const waitingMatch = firstRound.matches[firstRound.matches.length - 1];
+      if (waitingMatch) {
+        waitingMatch.slotA = byeCarrier;
+        waitingMatch.slotB = byeSlot();
+      }
+      for (let matchIndex = 0; matchIndex < firstRound.matches.length - 1; matchIndex += 1) {
+        const match = firstRound.matches[matchIndex];
+        match.slotA = slotFromParticipant(participants[matchIndex * 2]);
+        match.slotB = slotFromParticipant(participants[matchIndex * 2 + 1]);
+      }
+    } else {
+      for (let matchIndex = 0; matchIndex < firstRound.matches.length; matchIndex += 1) {
+        const match = firstRound.matches[matchIndex];
+        match.slotA = slotFromParticipant(participants[matchIndex * 2]);
+        match.slotB = slotFromParticipant(participants[matchIndex * 2 + 1]);
+      }
+    }
   }
 
   const state = finalizeState(rounds);
@@ -329,18 +424,28 @@ export function selectMatchWinner(
 
   targetMatch.winnerId = winnerParticipantId;
   targetMatch.status = 'complete';
-  advanceWinner(rounds, targetMatch, winnerParticipantId, winnerSlot.name);
+  placeWinner(rounds, targetMatch, winnerParticipantId, winnerSlot.name);
 
   const nextState = finalizeState(rounds);
   return { ...nextState, participants: state.participants };
 }
 
-export function getMatchTop(roundIndex: number, matchIndex: number, unitHeight: number): number {
+export function getMatchTop(
+  roundIndex: number,
+  matchIndex: number,
+  unitHeight: number,
+  firstRoundMatchCount: number,
+  roundMatchCount: number,
+  matchNodeHeight: number,
+): number {
+  const canvasHeight = firstRoundMatchCount * unitHeight * 2;
+
   if (roundIndex === 0) {
     return matchIndex * unitHeight * 2;
   }
 
-  return matchIndex * unitHeight * 2 ** (roundIndex + 1) + unitHeight * (2 ** roundIndex - 1);
+  const spacing = canvasHeight / Math.max(roundMatchCount, 1);
+  return matchIndex * spacing + Math.max(0, (spacing - matchNodeHeight) / 2);
 }
 
 export function getMatchCenterY(
@@ -348,31 +453,38 @@ export function getMatchCenterY(
   matchIndex: number,
   unitHeight: number,
   matchNodeHeight: number,
+  firstRoundMatchCount: number,
+  roundMatchCount: number,
 ): number {
-  return getMatchTop(roundIndex, matchIndex, unitHeight) + matchNodeHeight / 2;
+  return (
+    getMatchTop(roundIndex, matchIndex, unitHeight, firstRoundMatchCount, roundMatchCount, matchNodeHeight) +
+    matchNodeHeight / 2
+  );
 }
 
 export function getBracketVerticalOffset(
-  roundCount: number,
-  firstRoundMatchCount: number,
+  rounds: BracketRound[],
   unitHeight: number,
   matchNodeHeight: number,
 ): number {
-  if (roundCount === 0) return 0;
+  if (rounds.length === 0) return 0;
 
+  const firstRoundMatchCount = rounds[0].matches.length;
   const canvasHeight = firstRoundMatchCount * unitHeight * 2;
-  const finalRoundIndex = roundCount - 1;
-  const finalCenter = getMatchCenterY(finalRoundIndex, 0, unitHeight, matchNodeHeight);
+  const finalRound = rounds[rounds.length - 1];
+  const finalCenter = getMatchCenterY(
+    finalRound.index,
+    0,
+    unitHeight,
+    matchNodeHeight,
+    firstRoundMatchCount,
+    finalRound.matches.length,
+  );
 
   return canvasHeight / 2 - finalCenter;
 }
 
-export function getMatchHeight(roundIndex: number, unitHeight: number): number {
-  return unitHeight * 2 ** roundIndex;
-}
-
 export function getCanvasHeight(rounds: BracketRound[], unitHeight: number): number {
   if (rounds.length === 0) return unitHeight;
-  const firstRoundMatches = rounds[0].matches.length;
-  return firstRoundMatches * unitHeight * 2;
+  return rounds[0].matches.length * unitHeight * 2;
 }

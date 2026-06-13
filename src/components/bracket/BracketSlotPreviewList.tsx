@@ -7,17 +7,19 @@ import type { BracketSlotPreview } from '@/lib/bracket-engine';
 
 type BracketSlotPreviewListProps = {
   slots: BracketSlotPreview[];
+  playerCount: number;
 };
 
-export function BracketSlotPreviewList({ slots }: BracketSlotPreviewListProps) {
+export function BracketSlotPreviewList({ slots, playerCount }: BracketSlotPreviewListProps) {
   return (
     <View style={styles.container}>
       <HudText variant="label" color={Netrunner.primary}>
         BRACKET SLOT PREVIEW
       </HudText>
-      <HudText variant="caption" color={Netrunner.textMuted}>
-        Round 1 layout after launch — empty slots use muted labels.
-      </HudText>
+        <HudText variant="caption" color={Netrunner.textMuted}>
+          First-round pairings — all {playerCount} players are matched; byes only appear as
+          empty opponent slots in later rounds.
+        </HudText>
       <View style={styles.grid}>
         {slots.map((slot) => (
           <View key={`slot-preview-${slot.slotNumber}`} style={styles.item}>

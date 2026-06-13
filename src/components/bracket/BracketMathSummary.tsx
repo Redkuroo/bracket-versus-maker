@@ -16,9 +16,16 @@ export function BracketMathSummary({ info }: BracketMathSummaryProps) {
       </HudText>
 
       <View style={styles.row}>
-        <HudText variant="caption">Target bracket</HudText>
+        <HudText variant="caption">Round 1 matches</HudText>
         <HudText variant="mono" color={Netrunner.text}>
-          {info.bracketSize} slots
+          {info.round1Matches}
+        </HudText>
+      </View>
+
+      <View style={styles.row}>
+        <HudText variant="caption">Round 1 byes</HudText>
+        <HudText variant="mono" color={Netrunner.text}>
+          {info.round1Byes}
         </HudText>
       </View>
 
@@ -37,8 +44,11 @@ export function BracketMathSummary({ info }: BracketMathSummaryProps) {
 
       <HudText variant="caption" color={Netrunner.textMuted}>
         {info.isPerfectBracket
-          ? 'Perfect power-of-2 bracket — no byes required.'
-          : `${info.byeCount} bracket slot${info.byeCount === 1 ? '' : 's'} will display [ BYE ] in muted text.`}
+          ? 'Perfect power-of-2 count — every round pairs evenly.'
+          : info.byeSummary}
+        {info.laterRoundByes > 0
+          ? ' Empty opponent slots show [ BYE ]; waiting slots show [ EMPTY / ADVANCED ].'
+          : ''}
       </HudText>
     </View>
   );
