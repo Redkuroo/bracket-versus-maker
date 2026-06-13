@@ -10,12 +10,9 @@ import {
 } from 'react-native';
 
 import { HudButton } from '@/components/bracket/HudButton';
-import { BracketMathSummary } from '@/components/bracket/BracketMathSummary';
-import { BracketSlotPreviewList } from '@/components/bracket/BracketSlotPreviewList';
 import { HudText } from '@/components/bracket/HudText';
 import { HudTextInput } from '@/components/bracket/HudTextInput';
 import { Netrunner } from '@/constants/netrunner-theme';
-import { getBracketInfo, getBracketSlotPreview } from '@/lib/bracket-engine';
 import { useKeyboardAwareScroll } from '@/hooks/use-keyboard-aware-scroll';
 import { MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '@/types/bracket';
 
@@ -81,9 +78,6 @@ export function SetupPanel({
     onChangeCount(count);
   };
 
-  const bracketInfo = getBracketInfo(participantCount);
-  const slotPreview = getBracketSlotPreview(participantNames, participantCount);
-
   const focusInput = (ref: ViewType | null) => {
     scrollInputIntoView(ref);
   };
@@ -143,7 +137,6 @@ export function SetupPanel({
                 );
               })}
             </View>
-            <BracketMathSummary info={bracketInfo} />
           </View>
 
           <View style={styles.section}>
@@ -151,7 +144,7 @@ export function SetupPanel({
               Player / Team Names
             </HudText>
             <HudText variant="caption" color={Netrunner.textMuted}>
-              Round 1 pairs every entered player. {bracketInfo.formula}
+              Leave blank for default names. Round 1 pairs players in order.
             </HudText>
             <View style={styles.nameGrid}>
               {Array.from({ length: participantCount }, (_, index) => (
@@ -171,8 +164,6 @@ export function SetupPanel({
               ))}
             </View>
           </View>
-
-          <BracketSlotPreviewList slots={slotPreview} playerCount={participantCount} />
 
           <HudButton label="Launch Bracket" variant="secondary" onPress={onStart} />
         </View>

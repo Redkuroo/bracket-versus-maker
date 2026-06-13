@@ -128,37 +128,6 @@ function buildAdvanceLinks(matchCounts: number[], incomingBye: boolean[]) {
   return links;
 }
 
-export function isPowerOfTwo(value: number): boolean {
-  return value > 0 && (value & (value - 1)) === 0;
-}
-
-export function getBracketInfo(playerCount: number) {
-  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
-  const { matchCounts, incomingBye } = computeRoundStructure(safeCount);
-  const round1Matches = matchCounts[0] ?? 0;
-  const round1Byes = incomingBye[0] ? 1 : 0;
-  const laterRoundByes = incomingBye.slice(1).filter(Boolean).length;
-
-  return {
-    playerCount: safeCount,
-    round1Matches,
-    round1Byes,
-    laterRoundByes,
-    totalRounds: matchCounts.length,
-    isPerfectBracket: isPowerOfTwo(safeCount),
-    formula:
-      round1Byes > 0
-        ? `Round 1: ${safeCount} players → ${round1Matches} matches + 1 bye`
-        : `Round 1: ${safeCount} players → ${round1Matches} matches (everyone plays)`,
-    byeSummary:
-      laterRoundByes > 0
-        ? `${laterRoundByes} later-round bye${laterRoundByes === 1 ? '' : 's'} when an odd number of teams advances`
-        : 'No byes required',
-  };
-}
-
-export type BracketInfo = ReturnType<typeof getBracketInfo>;
-
 export function getSlotKind(slot: BracketSlot): BracketSlotKind {
   if (slot.participantId) return 'player';
   if (slot.isBye) return 'bye';
@@ -170,41 +139,6 @@ export function getSlotDisplayLabel(slot: BracketSlot): string {
   if (slot.isBye) return BracketSlotLabels.bye;
   return BracketSlotLabels.empty;
 }
-
-export function getBracketSlotPreview(participantNames: string[], playerCount: number) {
-  const safeCount = Math.max(playerCount, MIN_PARTICIPANTS);
-  const names = Array.from({ length: safeCount }, (_, index) => participantNames[index] ?? '');
-  const participants = createParticipants(names);
-  const preview: { slotNumber: number; label: string; kind: BracketSlotKind }[] = [];
-  let slotNumber = 1;
-
-  for (let matchIndex = 0; matchIndex < Math.floor(safeCount / 2); matchIndex += 1) {
-    const playerA = participants[matchIndex * 2];
-    const playerB = participants[matchIndex * 2 + 1];
-    preview.push({
-      slotNumber: slotNumber++,
-      label: playerA.name,
-      kind: 'player',
-    });
-    preview.push({
-      slotNumber: slotNumber++,
-      label: playerB.name,
-      kind: 'player',
-    });
-  }
-
-  if (safeCount % 2 === 1) {
-    preview.push({
-      slotNumber: slotNumber++,
-      label: BracketSlotLabels.bye,
-      kind: 'bye',
-    });
-  }
-
-  return preview;
-}
-
-export type BracketSlotPreview = ReturnType<typeof getBracketSlotPreview>[number];
 
 function getRoundLabel(roundIndex: number, totalRounds: number): string {
   const roundsFromFinal = totalRounds - roundIndex - 1;
