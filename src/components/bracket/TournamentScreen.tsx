@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,8 +7,13 @@ import { HudButton } from '@/components/bracket/HudButton';
 import { HudText } from '@/components/bracket/HudText';
 import { SetupPanel } from '@/components/bracket/SetupPanel';
 import { ChampionBanner, TournamentStatusBar } from '@/components/bracket/TournamentStatusBar';
+import { BracketZoom, ZoomControls } from '@/components/bracket/ZoomControls';
 import { Netrunner } from '@/constants/netrunner-theme';
 import { useTournament } from '@/hooks/use-tournament';
+
+function clampZoom(scale: number) {
+  return Math.min(BracketZoom.max, Math.max(BracketZoom.min, scale));
+}
 
 export function TournamentScreen() {
   const {
@@ -23,6 +28,19 @@ export function TournamentScreen() {
     resetTournament,
     pickWinner,
   } = useTournament();
+  const [zoom, setZoom] = useState<number>(BracketZoom.default);
+
+  const zoomIn = useCallback(() => {
+    setZoom((current) => clampZoom(Number((current + BracketZoom.step).toFixed(2))));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoom((current) => clampZoom(Number((current - BracketZoom.step).toFixed(2))));
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoom(BracketZoom.default);
+  }, []);
 
   const activeMatch = useMemo(() => {
     if (!tournament?.activeMatchId) return null;
@@ -82,7 +100,9 @@ export function TournamentScreen() {
           />
         )}
 
-        <BracketCanvas tournament={tournament} onSelectWinner={pickWinner} />
+        <ZoomControls scale={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
+
+        <BracketCanvas tournament={tournament} scale={zoom} onSelectWinner={pickWinner} />
       </View>
     </SafeAreaView>
   );

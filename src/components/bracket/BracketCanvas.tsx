@@ -7,15 +7,18 @@ import type { TournamentState } from '@/types/bracket';
 
 type BracketCanvasProps = {
   tournament: TournamentState;
+  scale?: number;
   onSelectWinner: (matchId: string, participantId: string) => void;
 };
 
-export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps) {
+export function BracketCanvas({ tournament, scale = 1, onSelectWinner }: BracketCanvasProps) {
   const unitHeight = BracketLayout.unitHeight;
   const canvasHeight = getCanvasHeight(tournament.rounds, unitHeight);
   const canvasWidth =
     tournament.rounds.length * (BracketLayout.matchWidth + BracketLayout.roundGap) +
     BracketLayout.canvasPadding * 2;
+  const scaledWidth = canvasWidth * scale;
+  const scaledHeight = (canvasHeight + 48) * scale;
 
   return (
     <View style={styles.wrapper}>
@@ -23,23 +26,33 @@ export function BracketCanvas({ tournament, onSelectWinner }: BracketCanvasProps
         horizontal
         bounces
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.horizontalContent, { minWidth: canvasWidth }]}>
+        contentContainerStyle={[styles.horizontalContent, { minWidth: scaledWidth }]}>
         <ScrollView
           nestedScrollEnabled
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.verticalContent, { minHeight: canvasHeight + 48 }]}>
-          <View style={[styles.bracketTree, { height: canvasHeight }]}>
-            {tournament.rounds.map((round, index) => (
-              <BracketRoundColumn
-                key={round.index}
-                round={round}
-                canvasHeight={canvasHeight}
-                unitHeight={unitHeight}
-                activeMatchId={tournament.activeMatchId}
-                isFinal={index === tournament.rounds.length - 1}
-                onSelectWinner={onSelectWinner}
-              />
-            ))}
+          contentContainerStyle={[styles.verticalContent, { minHeight: scaledHeight }]}>
+          <View style={[styles.scaleHost, { width: scaledWidth, height: scaledHeight }]}>
+            <View
+              style={[
+                styles.bracketTree,
+                {
+                  height: canvasHeight,
+                  transform: [{ scale }],
+                  transformOrigin: 'top left',
+                },
+              ]}>
+              {tournament.rounds.map((round, index) => (
+                <BracketRoundColumn
+                  key={round.index}
+                  round={round}
+                  canvasHeight={canvasHeight}
+                  unitHeight={unitHeight}
+                  activeMatchId={tournament.activeMatchId}
+                  isFinal={index === tournament.rounds.length - 1}
+                  onSelectWinner={onSelectWinner}
+                />
+              ))}
+            </View>
           </View>
         </ScrollView>
       </ScrollView>
@@ -57,6 +70,9 @@ const styles = StyleSheet.create({
   },
   verticalContent: {
     paddingBottom: BracketLayout.canvasPadding,
+  },
+  scaleHost: {
+    overflow: 'visible',
   },
   bracketTree: {
     flexDirection: 'row',
